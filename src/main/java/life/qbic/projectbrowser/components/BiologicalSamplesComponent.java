@@ -21,6 +21,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.sample.Sample;
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.vocabulary.Vocabulary;
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.vocabulary.VocabularyTerm;
 import com.vaadin.data.Item;
 import com.vaadin.data.util.BeanItem;
 import com.vaadin.data.util.BeanItemContainer;
@@ -57,10 +60,6 @@ import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-
-import ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.Sample;
-import ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.Vocabulary;
-import ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.VocabularyTerm;
 
 import life.qbic.projectbrowser.helpers.*;
 import life.qbic.projectbrowser.controllers.*;
@@ -206,23 +205,23 @@ public class BiologicalSamplesComponent extends CustomComponent {
         new BeanItemContainer<BiologicalEntitySampleBean>(BiologicalEntitySampleBean.class);
 
     List<Sample> allSamples =
-        datahandler.getOpenBisClient().getSamplesWithParentsAndChildrenOfProjectBySearchService(id);
+        datahandler.getOpenBisClient().getSamplesOfProject(id);
 
     List<VocabularyTerm> terms = null;
-    Map<String, String> termsMap = new HashMap<String, String>();
+    Map<String, String> termsMap = new HashMap<>();
     
     StudyXMLParser xmlParser = new StudyXMLParser();
 
     for (Sample sample : allSamples) {
 
-      if (sample.getSampleTypeCode().equals(sampleTypes.Q_BIOLOGICAL_ENTITY.toString())) {
+      if (sample.getType().getCode().equals(sampleTypes.Q_BIOLOGICAL_ENTITY.toString())) {
 
         Map<String, String> sampleProperties = sample.getProperties();
 
         BiologicalEntitySampleBean newEntityBean = new BiologicalEntitySampleBean();
         newEntityBean.setCode(sample.getCode());
-        newEntityBean.setId(sample.getIdentifier());
-        newEntityBean.setType(sample.getSampleTypeCode());
+        newEntityBean.setId(sample.getIdentifier().toString());
+        newEntityBean.setType(sample.getType().getCode());
         newEntityBean.setAdditionalInfo(sampleProperties.get("Q_ADDITIONAL_INFO"));
         newEntityBean.setExternalDB(sampleProperties.get("Q_EXTERNALDB_ID"));
         newEntityBean.setSecondaryName(sampleProperties.get("Q_SECONDARY_NAME"));
@@ -242,7 +241,7 @@ public class BiologicalSamplesComponent extends CustomComponent {
             }
           }
         } else {
-          for (Vocabulary vocab : datahandler.getOpenBisClient().getFacade().listVocabularies()) {
+          for (Vocabulary vocab : datahandler.getOpenBisClient().listVocabulary()) {
             if (vocab.getCode().equals("Q_NCBI_TAXONOMY")) {
               terms = vocab.getTerms();
               for (VocabularyTerm term : vocab.getTerms()) {
@@ -271,7 +270,7 @@ public class BiologicalSamplesComponent extends CustomComponent {
 
         // for (Sample child : datahandler.getOpenBisClient().getChildrenSamples(sample)) {
         for (Sample realChild : sample.getChildren()) {
-          if (realChild.getSampleTypeCode().equals(sampleTypes.Q_BIOLOGICAL_SAMPLE.toString())) {
+          if (realChild.getType().getCode().equals(sampleTypes.Q_BIOLOGICAL_SAMPLE.toString())) {
             // Sample realChild =
             // datahandler.getOpenBisClient().getSampleByIdentifier(child.getIdentifier());
 
@@ -279,8 +278,8 @@ public class BiologicalSamplesComponent extends CustomComponent {
 
             BiologicalSampleBean newBean = new BiologicalSampleBean();
             newBean.setCode(realChild.getCode());
-            newBean.setId(realChild.getIdentifier());
-            newBean.setType(realChild.getSampleTypeCode());
+            newBean.setId(realChild.getIdentifier().toString());
+            newBean.setType(realChild.getType().getCode());
             newBean.setPrimaryTissue(sampleBioProperties.get("Q_PRIMARY_TISSUE"));
             newBean.setTissueDetailed(sampleBioProperties.get("Q_TISSUE_DETAILED"));
             newBean.setBiologicalEntity(sample.getCode());

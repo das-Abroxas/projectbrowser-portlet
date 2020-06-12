@@ -29,12 +29,11 @@ import java.util.regex.Pattern;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.sample.Sample;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 import org.xml.sax.InputSource;
-
-import ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.Sample;
 
 public class SearchResultsSampleBean implements Comparable<Object>, Serializable {
 
@@ -51,7 +50,7 @@ public class SearchResultsSampleBean implements Comparable<Object>, Serializable
 
   public SearchResultsSampleBean(Sample s, String query) {
     //sampleID = s.getCode();
-    sampleID = s.getIdentifier();
+    sampleID = s.getIdentifier().toString();
     sampleName = this.extractSampleProperty(s, "Q_SECONDARY_NAME");
     queryString = query;
     matchedField = findMatchedFields(s);

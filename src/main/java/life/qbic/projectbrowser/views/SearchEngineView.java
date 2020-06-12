@@ -22,8 +22,15 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
-import ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.*;
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.experiment.Experiment;
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.experiment.search.ExperimentSearchCriteria;
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.project.Project;
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.property.PropertyType;
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.sample.Sample;
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.sample.SampleType;
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.sample.search.SampleSearchCriteria;
 import com.vaadin.data.Property;
 import com.vaadin.data.Property.ValueChangeEvent;
 import com.vaadin.data.validator.NullValidator;
@@ -44,22 +51,17 @@ import com.vaadin.ui.UI;
 import com.vaadin.ui.VerticalLayout;
 import com.vaadin.ui.themes.ValoTheme;
 
-import ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.SearchCriteria.MatchClause;
-import ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.SearchCriteria.MatchClauseAttribute;
-import ch.systemsx.cisd.openbis.generic.shared.basic.dto.ExperimentFetchOption;
-
 import life.qbic.portal.utils.PortalUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import life.qbic.projectbrowser.controllers.*;
 
+/**
+ *
+ */
 public class SearchEngineView extends CustomComponent {
 
-
-  /**
-   * 
-   */
   private static final long serialVersionUID = 5371970241077786446L;
   private static final Logger LOG = LogManager.getLogger(SearchEngineView.class);
   private Panel mainlayout;
@@ -67,7 +69,6 @@ public class SearchEngineView extends CustomComponent {
   private final String infotext = "no info text";
 
   Map<String, Map<String, String>> samplePropertiesMapping;
-
   Set<String> visibleSpaces;
 
   public SearchEngineView(DataHandler datahandler) {
@@ -78,20 +79,20 @@ public class SearchEngineView extends CustomComponent {
   }
 
   private void initSearchEngine() {
-    // TODO Auto-generated method stub
-
-
-    // retrieve all relevant sample type search fields (properties/attributes)
+    // Retrieve all relevant sample type search fields (properties/attributes)
     Map<String, SampleType> sampleTypeMap = datahandler.getOpenBisClient().getSampleTypes();
 
     for (String key : sampleTypeMap.keySet()) {
       // LOG.info(key);
-      Map<String, String> props =
-          datahandler.getOpenBisClient().getLabelsofProperties(sampleTypeMap.get(key));
+      List<PropertyType> propertyTypes =
+              datahandler.getOpenBisClient().listPropertiesForType(sampleTypeMap.get(key));
+      Map<String, String> propertyLabelMap =
+              propertyTypes.stream().collect(Collectors.toMap(PropertyType::getCode, PropertyType::getLabel));
+
+      // Map<String, String> props = datahandler.getOpenBisClient().getLabelsOfProperties(sampleTypeMap.get(key));
       // LOG.info(props.toString());
       // samplePropertiesMapping.put(key, props);
     }
-
   }
 
   public void initUI() {
@@ -231,7 +232,7 @@ public class SearchEngineView extends CustomComponent {
             datahandler.setLastQueryString(queryString);
 
             State state = (State) UI.getCurrent().getSession().getAttribute("state");
-            ArrayList<String> message = new ArrayList<String>();
+            ArrayList<String> message = new ArrayList<>();
             message.add("clicked");
             message.add("view" + queryString + navsel.getValue().toString().replace(" ", ""));
             message.add("searchresults");
@@ -280,52 +281,24 @@ public class SearchEngineView extends CustomComponent {
   }
 
   public List<Sample> querySamples(String queryString) {
-    EnumSet<SampleFetchOption> fetchOptions = EnumSet.of(SampleFetchOption.PROPERTIES,
-            SampleFetchOption.BASIC);
+    SampleSearchCriteria ssc = new SampleSearchCriteria();
+    ssc.withAnyField().thatContains(queryString);
 
-            //, SampleFetchOption.CONTAINED, SampleFetchOption.DESCENDANTS,
-            //SampleFetchOption.PARENTS, SampleFetchOption.CHILDREN, SampleFetchOption.ANCESTORS);
-
-    SearchCriteria sc = new SearchCriteria();
-    sc.addMatchClause(MatchClause.createAnyFieldMatch("*" + queryString + "*"));
-
-    List<Sample> samples = datahandler.getOpenBisClient().getOpenbisInfoService().searchForSamplesOnBehalfOfUser(datahandler.getOpenBisClient().getSessionToken(), sc, fetchOptions, PortalUtils.getNonNullScreenName());
-
-    return samples;
+    return datahandler.getOpenBisClient().getSamplesForUser(ssc, PortalUtils.getNonNullScreenName());
   }
 
-
   public List<Experiment> queryExperiments(String queryString) {
-    EnumSet<ExperimentFetchOption> fetchOptions =
-        EnumSet.of(ExperimentFetchOption.PROPERTIES, ExperimentFetchOption.BASIC);
+    ExperimentSearchCriteria esc = new ExperimentSearchCriteria();
+    esc.withAnyField().thatContains(queryString);
 
-    SearchCriteria sc = new SearchCriteria();
-    sc.addMatchClause(MatchClause.createAnyFieldMatch("*" + queryString + "*"));
-
-    List<Experiment> exps = datahandler.getOpenBisClient().getOpenbisInfoService()
-        .searchForExperiments(datahandler.getOpenBisClient().getSessionToken(), sc);
-
-    List<Experiment> expFilteredByUser = new ArrayList<Experiment>();
-
-    for (Experiment e : exps) {
-      String[] splitstr = e.getIdentifier().split("/");
-      String spaceCode = splitstr[1];
-
-      if (visibleSpaces.contains(spaceCode)) {
-        expFilteredByUser.add(e);
-      }
-    }
-
-    return expFilteredByUser;
+    return datahandler.getOpenBisClient().getExperimentsForUser(esc, PortalUtils.getNonNullScreenName());
   }
 
   public List<Project> queryProjects(String queryString) {
-    List<Project> result = new ArrayList<Project>();
+    List<Project> result = new ArrayList<>();
 
     List<Project> projects =
-        new ArrayList<Project>(datahandler.getOpenBisClient().getOpenbisInfoService()
-            .listProjectsOnBehalfOfUser(datahandler.getOpenBisClient().getSessionToken(),
-                PortalUtils.getNonNullScreenName()));
+            datahandler.getOpenBisClient().listProjectsForUser(PortalUtils.getNonNullScreenName());
 
     for (Project p : projects) {
       String projectDesc = p.getDescription();
@@ -340,40 +313,7 @@ public class SearchEngineView extends CustomComponent {
     return result;
   }
 
-
   public Set<String> listSpacesOnBehalfOfUser() {
-    // first retrieve all projects belonging to the user
-    List<Project> projects =
-        new ArrayList<Project>(datahandler.getOpenBisClient().getOpenbisInfoService()
-            .listProjectsOnBehalfOfUser(datahandler.getOpenBisClient().getSessionToken(),
-                PortalUtils.getNonNullScreenName()));
-
-    Set<String> resultSpaceNames = new HashSet<String>();
-
-    for (Project p : projects) {
-      resultSpaceNames.add(p.getSpaceCode());
-      // LOG.info(p.getSpaceCode());
-    }
-
-    // LOG.info(resultSpaceNames.toString());
-
-    return resultSpaceNames;
-  }
-
-
-  public List<String> getSearchResults(String samplecode) {
-    EnumSet<SampleFetchOption> fetchOptions = EnumSet.of(SampleFetchOption.PROPERTIES);
-    SearchCriteria sc = new SearchCriteria();
-    sc.addMatchClause(
-        MatchClause.createAttributeMatch(MatchClauseAttribute.CODE, samplecode + "*"));
-
-    List<Sample> samples = datahandler.getOpenBisClient().getOpenbisInfoService()
-        .searchForSamplesOnBehalfOfUser(datahandler.getOpenBisClient().getSessionToken(), sc,
-            fetchOptions, PortalUtils.getNonNullScreenName());
-    List<String> ret = new ArrayList<String>(samples.size());
-    for (Sample sample : samples) {
-      ret.add(sample.getCode());
-    }
-    return ret;
+    return new HashSet<>(datahandler.getOpenBisClient().listSpacesForUser(PortalUtils.getNonNullScreenName()));
   }
 }

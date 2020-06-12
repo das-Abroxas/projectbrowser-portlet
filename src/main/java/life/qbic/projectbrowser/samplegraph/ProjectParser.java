@@ -1,45 +1,44 @@
 package life.qbic.projectbrowser.samplegraph;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedHashSet;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Queue;
-import java.util.Set;
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.dataset.DataSet;
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.sample.Sample;
 
-import javax.xml.bind.JAXBException;
-
-import org.apache.commons.lang.StringUtils;
-import org.apache.commons.lang.WordUtils;
-import org.apache.commons.lang3.tuple.ImmutablePair;
-import org.apache.commons.lang3.tuple.Pair;
-
-import ch.systemsx.cisd.openbis.dss.client.api.v1.DataSet;
-import ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.Sample;
 import life.qbic.datamodel.samples.ISampleBean;
 import life.qbic.datamodel.samples.SampleSummary;
+import life.qbic.projectbrowser.views.ProjectView;
 import life.qbic.xml.properties.Property;
 import life.qbic.xml.properties.PropertyType;
 
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.apache.commons.lang3.tuple.Pair;
+import org.apache.commons.text.WordUtils;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
+import javax.xml.bind.JAXBException;
+import java.util.*;
+
+
+/**
+ *
+ */
 public class ProjectParser {
 
-  private Map<String, String> taxMap;
-  private Map<String, String> tissueMap;
+  private static final Logger logger = LogManager.getLogger(ProjectParser.class);
+
+  private Set<String> codesWithDatasets, factorLabels;
   private Set<String> validLeafs =
-      new HashSet<String>(Arrays.asList("Q_TEST_SAMPLE", "Q_MHC_LIGAND_EXTRACT"));
-  private Set<String> validSamples = new HashSet<String>(Arrays.asList("Q_TEST_SAMPLE",
-      "Q_MHC_LIGAND_EXTRACT", "Q_BIOLOGICAL_ENTITY", "Q_BIOLOGICAL_SAMPLE"));
-  private Map<String, List<DataSet>> sampCodeToDS;
-  private Set<String> codesWithDatasets;
+          new HashSet<>(Arrays.asList("Q_TEST_SAMPLE", "Q_MHC_LIGAND_EXTRACT"));
+  private Set<String> validSamples =
+          new HashSet<>(Arrays.asList("Q_TEST_SAMPLE", "Q_MHC_LIGAND_EXTRACT",
+                  "Q_BIOLOGICAL_ENTITY", "Q_BIOLOGICAL_SAMPLE"));
+
+  private Map<String, String> taxMap, tissueMap;
   private Map<String, Sample> sampCodeToSamp;
-  private Set<String> factorLabels;
+  private Map<String, List<DataSet>> sampCodeToDS;
   private Map<Pair<String, String>, Property> factorsForLabelsAndSamples;
+
 
   public ProjectParser(Map<String, String> taxMap, Map<String, String> tissueMap) {
     this.taxMap = taxMap;
@@ -92,85 +91,66 @@ public class ProjectParser {
   }
 
   private Property getFactorOfSampleOrNull(final Sample s, final String factorLabel)
-      throws JAXBException {
+          throws JAXBException {
     Pair<String, String> key = new ImmutablePair<>(factorLabel, s.getCode());
     return factorsForLabelsAndSamples.get(key);
-    // final Map<String, String> props = s.getProperties();
-    // final String xmlProperties = props.get("Q_PROPERTIES");
-    // final List<Property> factors = (xmlProperties == null ? Collections.EMPTY_LIST
-    // : xmlParser.getAllProperties(xmlParser.parseXMLString(xmlProperties)));
-    //
-    // for (final Property f : factors) {
-    // if (f.getLabel().equals(factorLabel)) {
-    // return f;
-    // }
-    // }
-    // return null;
   }
 
   public StructuredExperiment parseSamplesBreadthFirst(List<Sample> samples, List<DataSet> datasets,
-      Set<String> factorLabels, Map<Pair<String, String>, Property> factorsForLabelsAndSamples)
-      throws JAXBException {
+                                                       Set<String> factorLabels, Map<Pair<String, String>,
+                                                       Property> factorsForLabelsAndSamples)
+                                                       throws JAXBException {
     this.factorLabels = factorLabels;
     this.factorsForLabelsAndSamples = factorsForLabelsAndSamples;
-    sampCodeToDS = new HashMap<String, List<DataSet>>();
-    codesWithDatasets = new HashSet<String>();
+    sampCodeToDS = new HashMap<>();
+    codesWithDatasets = new HashSet<>();
+
     for (DataSet d : datasets) {
-      String code = d.getSampleIdentifierOrNull().split("/")[2];
+      String code = d.getSample().getIdentifier().toString().split("/")[2];
       if (sampCodeToDS.containsKey(code)) {
         sampCodeToDS.get(code).add(d);
       } else {
-        sampCodeToDS.put(code, new ArrayList<DataSet>(Arrays.asList(d)));
+        sampCodeToDS.put(code, new ArrayList<>(Arrays.asList(d)));
       }
     }
 
     // this.xmlParser = new XMLParser();
-    Map<String, List<SampleSummary>> factorsToSamples = new HashMap<String, List<SampleSummary>>();
+    Map<String, List<SampleSummary>> factorsToSamples = new HashMap<>();
 
     Set<String> knownFactors = new HashSet<String>();
     knownFactors = factorLabels;
-    sampCodeToSamp = new HashMap<String, Sample>();
+    sampCodeToSamp = new HashMap<>();
     knownFactors.add("None");
 
-    Queue<Sample> samplesBreadthFirst = new LinkedList<Sample>();
-    Set<Sample> visited = new HashSet<Sample>();
+    Queue<Sample> samplesBreadthFirst = new LinkedList<>();
+    Set<Sample> visited = new HashSet<>();
     // init
     for (Sample sample : samples) {
       sampCodeToSamp.put(sample.getCode(), sample);
-      String type = sample.getSampleTypeCode();
+      String type = sample.getType().getCode();
+
       if (validSamples.contains(type)) {
-        // Map<String, String> propertiesMap = sample.getProperties();
-        // List<Property> factors = new ArrayList<Property>();
-        // if (propertiesMap.containsKey("Q_PROPERTIES")) {
-        // // TODO: all props?
-        // factors = xmlParser
-        // .getAllProperties(xmlParser.parseXMLString(propertiesMap.get("Q_PROPERTIES")));
-        // }
-        // for (Property f : factors) {
-        // knownFactors.add(f.getLabel());
-        // }
-        // collect roots
         if (sample.getParents().isEmpty()) {
           samplesBreadthFirst.add(sample);
         }
       }
     }
-    // TODO maybe fill queue (then copy queue) and map to parents outside this loop
-    Map<String, Integer> idCounterPerLabel = new HashMap<String, Integer>();
-    Map<String, Map<Sample, Set<SampleSummary>>> sampleToParentNodesPerLabel =
-        new HashMap<String, Map<Sample, Set<SampleSummary>>>();
-    Map<String, Set<SampleSummary>> nodesForFactorPerLabel =
-        new HashMap<String, Set<SampleSummary>>();
+
+    //ToDo: Maybe fill queue (then copy queue) and map to parents outside this loop
+    Map<String, Integer> idCounterPerLabel = new HashMap<>();
+    Map<String, Map<Sample, Set<SampleSummary>>> sampleToParentNodesPerLabel = new HashMap<>();
+    Map<String, Set<SampleSummary>> nodesForFactorPerLabel = new HashMap<>();
+
     for (String label : knownFactors) {
       idCounterPerLabel.put(label, 1);
-      sampleToParentNodesPerLabel.put(label, new HashMap<Sample, Set<SampleSummary>>());
-      nodesForFactorPerLabel.put(label, new LinkedHashSet<SampleSummary>());
+      sampleToParentNodesPerLabel.put(label, new HashMap<>());
+      nodesForFactorPerLabel.put(label, new LinkedHashSet<>());
     }
 
     // breadth first queue loop
     while (!samplesBreadthFirst.isEmpty()) {
       Sample s = samplesBreadthFirst.poll();
-      String type = s.getSampleTypeCode();
+      String type = s.getType().getCode();
       if (validSamples.contains(type) && !visited.contains(s)) {
         visited.add(s);
         List<Sample> children = s.getChildren();
@@ -226,31 +206,48 @@ public class ProjectParser {
 
   // new "sample to bucket" function, creates new summaries from sample metadata in reference to
   // parent summaries and experimental factor
-  private SampleSummary createSummary(Sample s, Set<SampleSummary> parents, String label,
-      int currentID) throws JAXBException {
-    // name: should be the visible discriminating factor between nodes
-    // 1. contains the source, if the source is not the selected factor (e.g. tissues)
-    // 2. contains the selected factor's value, except
-    // a) if parent sample has the same factor value
-    // b) if it has no factor
-    // factor: the current selected factor object. If none exists, parents' sources are used.
 
-    // the name alone is not enough to discriminate between different nodes! (e.g. different parent
-    // nodes, same child node name)
-    String type = s.getSampleTypeCode();
+  /**
+   * New "sample to bucket" function. Creates new summaries from
+   * sample metadata in reference to parent summaries and experimental factor.
+   * @param s
+   * @param parents
+   * @param label
+   * @param currentID
+   * @return
+   * @throws JAXBException
+   */
+  private SampleSummary createSummary(Sample s, Set<SampleSummary> parents, String label, int currentID)
+          throws JAXBException {
+
+    /*
+     * Name: Should be the visible discriminating factor between nodes
+     * 1. Contains the source, if the source is not the selected factor (e.g. tissues)
+     * 2. Contains the selected factor's value, except
+     * a) If parent sample has the same factor value
+     * b) If it has no factor
+     * Factor: The current selected factor object. If none exists, parents' sources are used.
+     */
+
+    // The name alone is not enough to discriminate between different nodes!
+    //   (e.g. different parent nodes, same child node name)
+    String type = s.getType().getCode();
     String source = "unknown";
     Property factor = getFactorOfSampleOrNull(s, label);
     boolean newFactor = true;
-    Set<String> parentSources = new HashSet<String>();
-    Set<Integer> parentIDs = new HashSet<Integer>();
+    Set<String> parentSources = new HashSet<>();
+    Set<Integer> parentIDs = new HashSet<>();
+
     for (SampleSummary parentSum : parents) {
       parentIDs.add(parentSum.getId());
       String factorVal = parentSum.getFactorValue();
-      if (factorVal != null && !factorVal.isEmpty()) {
+
+      if (factorVal != null && !factorVal.isEmpty())
         newFactor = false;
-      }
+
       parentSources.add(parentSum.getSource());
     }
+
     if (factor == null) {
       factor = new Property("parents", StringUtils.join(parentSources, "+"), PropertyType.Factor);
       newFactor = false;
@@ -263,40 +260,48 @@ public class ProjectParser {
         source = taxMap.get(props.get("Q_NCBI_ORGANISM"));
         value = source + ' ' + value;
         break;
+
       case "Q_BIOLOGICAL_SAMPLE":
         source = tissueMap.get(props.get("Q_PRIMARY_TISSUE"));
         boolean isCellLine = source.equals("Cell Line");
+
         if (source.equals("Other") || isCellLine) {
           String detail = props.get("Q_TISSUE_DETAILED");
+
           if (detail != null && !detail.isEmpty()) {
             source = detail;
           }
         }
         value = !newFactor || source.equals(value) ? source : source + ' ' + value;
         break;
+
       case "Q_TEST_SAMPLE":
         source = props.get("Q_SAMPLE_TYPE");
         value = source + ' ' + value;
         break;
+
       case "Q_MHC_LIGAND_EXTRACT":
         source = props.get("Q_MHC_CLASS");
         value = source;
         break;
     }
+
     boolean leaf = true;
     for (Sample c : s.getChildren()) {
-      if (validSamples.contains(c.getSampleTypeCode())) {
+
+      if (validSamples.contains(c.getType().getCode())) {
         leaf = false;
         break;
       }
     }
+
     return new SampleSummary(currentID, parentIDs,
-        new ArrayList<ISampleBean>(Arrays.asList(new OpenbisSampleAdapter(s))), factor.getValue(),
+        new ArrayList<>(Arrays.asList(new OpenbisSampleAdapter(s))), factor.getValue(),
         tryShortenName(value, s), type, leaf);
   }
 
   private String tryShortenName(String key, Sample s) {
-    switch (s.getSampleTypeCode()) {
+    switch (s.getType().getCode()) {
       case "Q_BIOLOGICAL_ENTITY":
         return key;
       case "Q_BIOLOGICAL_SAMPLE":

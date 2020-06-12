@@ -24,7 +24,11 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.stream.Collectors;
 
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.dataset.DataSet;
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.project.Project;
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.sample.Sample;
 import life.qbic.portal.utils.PortalUtils;
 import org.tepi.filtertable.FilterTable;
 
@@ -61,10 +65,6 @@ import com.vaadin.ui.UI;
 import com.vaadin.ui.VerticalLayout;
 import com.vaadin.ui.themes.ValoTheme;
 
-import ch.systemsx.cisd.openbis.dss.client.api.v1.DataSet;
-import ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.Project;
-import ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.Sample;
-
 import life.qbic.openbis.openbisclient.OpenBisClient;
 
 import life.qbic.portal.utils.ConfigurationManager;
@@ -89,6 +89,7 @@ import org.apache.logging.log4j.Logger;
 @SuppressWarnings("serial")
 public class ProjectView extends VerticalLayout implements View {
 
+  private static final Logger logger = LogManager.getLogger(ProjectView.class);
   public final static String navigateToLabel = "project";
 
   FilterTable table;
@@ -612,8 +613,10 @@ public class ProjectView extends VerticalLayout implements View {
    */
   void updateContentGraph() {
     String projectID = currentBean.getId();
-    List<Sample> samples = datahandler.getOpenBisClient()
-        .getSamplesWithParentsAndChildrenOfProjectBySearchService(projectID);
+    List<Sample> pSamples = datahandler.getOpenBisClient().getSamplesOfProject(projectID);
+    List<Sample> samples = datahandler.getOpenBisClient().getSamplesWithParentsAndChildren(
+            pSamples.stream().map(Sample::getCode).collect(Collectors.toList())
+    );
     parseNewGraph(projectID, samples);
     Resource resource = getGraphResource(projectID, samples);
 
@@ -624,7 +627,7 @@ public class ProjectView extends VerticalLayout implements View {
       graphSectionContent.addComponent(graphImage);
       graphSectionContent.setComponentAlignment(graphImage, Alignment.MIDDLE_CENTER);
     } else {
-      Label error = new Label("Project Graph can not be computed at that time for this project");
+      Label error = new Label("Project Graph can not be computed at that time for this project.");
       error.setStyleName(ValoTheme.LABEL_FAILURE);
       graphSectionContent.removeAllComponents();
       graphSectionContent.addComponent(error);
@@ -636,8 +639,7 @@ public class ProjectView extends VerticalLayout implements View {
 
 
   private void parseNewGraph(String projectID, List<Sample> samples) {
-    List<DataSet> datasets =
-        datahandler.getOpenBisClient().getDataSetsOfProjectByIdentifier(projectID);
+    List<DataSet> datasets = datahandler.getOpenBisClient().getDataSetsOfProject(projectID);
     Set<String> factorLabels = datahandler.getFactorLabels();
     
     Map<Pair<String, String>, Property> factorsForLabelsAndSamples =
@@ -887,13 +889,12 @@ public class ProjectView extends VerticalLayout implements View {
     String currentValue = event.getParameters();
 
     OpenBisClient oc = datahandler.getOpenBisClient();
-    List<Project> userProjects = oc.getOpenbisInfoService().listProjectsOnBehalfOfUser(
-        oc.getSessionToken(), PortalUtils.getNonNullScreenName());
+    List<Project> userProjects = oc.listProjectsForUser(PortalUtils.getNonNullScreenName());
 
     List<String> projectIDs = new ArrayList<String>();
 
     for (Project p : userProjects) {
-      projectIDs.add(p.getIdentifier());
+      projectIDs.add(p.getIdentifier().toString());
     }
     if (projectIDs.contains(currentValue)) {
       // TODO updateContent only if currentProject is not equal to newProject

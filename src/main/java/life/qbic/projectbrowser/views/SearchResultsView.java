@@ -20,6 +20,9 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.experiment.Experiment;
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.project.Project;
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.sample.Sample;
 import com.vaadin.shared.ui.label.ContentMode;
 import org.tepi.filtertable.FilterTable;
 
@@ -38,10 +41,6 @@ import com.vaadin.ui.Grid.SelectionMode;
 import com.vaadin.ui.Label;
 import com.vaadin.ui.UI;
 import com.vaadin.ui.VerticalLayout;
-
-import ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.Experiment;
-import ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.Project;
-import ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.Sample;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -209,21 +208,6 @@ public class SearchResultsView extends VerticalLayout implements View {
     sampleBeanContainer = new BeanItemContainer<SearchResultsSampleBean>(
         SearchResultsSampleBean.class, sampleCollection);
 
-  }
-
-  private void setExportButton() {
-    // buttonLayoutSection.removeAllComponents();
-    // HorizontalLayout buttonLayout = new HorizontalLayout();
-    // buttonLayout.setHeight(null);
-    // buttonLayout.setWidth("100%");
-    // buttonLayoutSection.addComponent(buttonLayout);
-    //
-    // buttonLayout.addComponent(this.export);
-    //
-    // StreamResource sr =
-    // Utils.getTSVStream(Utils.containerToString(currentBean.getProjects()), this.caption);
-    // FileDownloader fileDownloader = new FileDownloader(sr);
-    // fileDownloader.extend(this.export);
   }
 
   /**

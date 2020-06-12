@@ -17,53 +17,14 @@
  *******************************************************************************/
 package life.qbic.projectbrowser.model;
 
-import java.io.Serializable;
-
-import ch.ethz.sis.openbis.generic.asapi.v3.dto.project.Project;
-
-public class SearchResultsProjectBean implements Comparable<Object>, Serializable {
-
-
-  /**
-   * 
-   */
-  private static final long serialVersionUID = -5213168232951534848L;
-  private String projectID;
-  private String description;
-  private String queryString;
-
-
-
-  public SearchResultsProjectBean(Project p, String query) {
-    projectID = p.getIdentifier().toString();
-    description = p.getDescription();
-    queryString = query;
-  }
-
-
-  public String getProjectID() {
-    return projectID;
-  }
-
-  public void setProjectID(String projectID) {
-    this.projectID = projectID;
-  }
-
-  public String getDescription() {
-    return description;
-  }
-
-
-
-  public void setDescription(String description) {
-    this.description = description;
-  }
-
-  @Override
-  public int compareTo(Object o) {
-    // TODO Auto-generated method stub
-    return 0;
-  }
-
-
+/**
+ * Enum type describing possible ways to sort ISampleBeans
+ * 
+ * @author Andreas Friedrich
+ * 
+ */
+public enum EntityType {
+  ATTACHMENT, DATASET, EXPERIMENT, SPACE,
+  MATERIAL, PROJECT, PROPERTY_TYPE, SAMPLE,
+  VOCABULARY, AUTHORIZATION_GROUP, METAPROJECT;
 }

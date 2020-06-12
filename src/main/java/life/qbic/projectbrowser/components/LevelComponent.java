@@ -15,6 +15,42 @@
  *******************************************************************************/
 package life.qbic.projectbrowser.components;
 
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.dataset.DataSet;
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.sample.Sample;
+
+import com.vaadin.data.Item;
+import com.vaadin.data.Property.ValueChangeEvent;
+import com.vaadin.data.Property.ValueChangeListener;
+import com.vaadin.data.util.*;
+import com.vaadin.event.ItemClickEvent;
+import com.vaadin.event.ItemClickEvent.ItemClickListener;
+import com.vaadin.server.*;
+import com.vaadin.shared.ui.MarginInfo;
+import com.vaadin.shared.ui.label.ContentMode;
+import com.vaadin.ui.*;
+import com.vaadin.ui.Button.ClickEvent;
+import com.vaadin.ui.Button.ClickListener;
+import com.vaadin.ui.Window.CloseEvent;
+import com.vaadin.ui.Window.CloseListener;
+import com.vaadin.ui.renderers.ButtonRenderer;
+import com.vaadin.ui.renderers.ClickableRenderer.RendererClickEvent;
+import com.vaadin.ui.renderers.ClickableRenderer.RendererClickListener;
+
+import life.qbic.portal.portlet.ProjectBrowserPortlet;
+import life.qbic.portal.utils.PortalUtils;
+import life.qbic.projectbrowser.controllers.DataHandler;
+import life.qbic.projectbrowser.controllers.State;
+import life.qbic.projectbrowser.helpers.*;
+import life.qbic.projectbrowser.model.DatasetBean;
+import life.qbic.projectbrowser.model.TestSampleBean;
+import life.qbic.xml.manager.StudyXMLParser;
+import life.qbic.xml.properties.Property;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.tepi.filtertable.FilterTreeTable;
+
+import javax.portlet.PortletSession;
 import java.io.UnsupportedEncodingException;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -22,70 +58,8 @@ import java.net.URLEncoder;
 import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
 import java.util.AbstractMap.SimpleEntry;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import javax.portlet.PortletSession;
-
-import life.qbic.portal.portlet.ProjectBrowserPortlet;
-import org.tepi.filtertable.FilterTreeTable;
-
-import com.vaadin.data.Item;
-import com.vaadin.data.Property.ValueChangeEvent;
-import com.vaadin.data.Property.ValueChangeListener;
-import com.vaadin.data.util.BeanItem;
-import com.vaadin.data.util.BeanItemContainer;
-import com.vaadin.data.util.GeneratedPropertyContainer;
-import com.vaadin.data.util.HierarchicalContainer;
-import com.vaadin.data.util.PropertyValueGenerator;
-import com.vaadin.event.ItemClickEvent;
-import com.vaadin.event.ItemClickEvent.ItemClickListener;
-import com.vaadin.server.ExternalResource;
-import com.vaadin.server.FileDownloader;
-import com.vaadin.server.FontAwesome;
-import com.vaadin.server.Resource;
-import com.vaadin.server.StreamResource;
-import com.vaadin.shared.ui.MarginInfo;
-import com.vaadin.shared.ui.label.ContentMode;
-import com.vaadin.ui.Alignment;
-import com.vaadin.ui.BrowserFrame;
-import com.vaadin.ui.Button;
-import com.vaadin.ui.Button.ClickEvent;
-import com.vaadin.ui.Button.ClickListener;
-import com.vaadin.ui.CheckBox;
-import com.vaadin.ui.CustomComponent;
-import com.vaadin.ui.Grid;
-import com.vaadin.ui.HorizontalLayout;
-import com.vaadin.ui.Label;
-import com.vaadin.ui.PopupView;
-import com.vaadin.ui.UI;
-import com.vaadin.ui.VerticalLayout;
-import com.vaadin.ui.Window;
-import com.vaadin.ui.Window.CloseEvent;
-import com.vaadin.ui.Window.CloseListener;
-import com.vaadin.ui.renderers.ButtonRenderer;
-import com.vaadin.ui.renderers.ClickableRenderer.RendererClickEvent;
-import com.vaadin.ui.renderers.ClickableRenderer.RendererClickListener;
-
-import ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.Sample;
-
-import life.qbic.projectbrowser.helpers.*;
-import life.qbic.projectbrowser.model.DatasetBean;
-import life.qbic.projectbrowser.model.TestSampleBean;
-import life.qbic.xml.manager.StudyXMLParser;
-import life.qbic.xml.properties.Property;
-import life.qbic.projectbrowser.controllers.*;
-
-import life.qbic.portal.utils.PortalUtils;
-
-import org.apache.commons.lang3.tuple.ImmutablePair;
-import org.apache.commons.lang3.tuple.Pair;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 /**
  * Displays raw data / results.
@@ -170,58 +144,49 @@ public class LevelComponent extends CustomComponent {
       datasetContainer.addContainerProperty("isDirectory", Boolean.class, null);
       datasetContainer.addContainerProperty("CODE", String.class, null);
 
-      List<ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.DataSet> retrievedDatasetsAll = null;
-      List<ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.DataSet> retrievedDatasets =
-          new ArrayList<ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.DataSet>();
-      Map<String, ArrayList<ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.DataSet>> datasetFilter =
-          new HashMap<String, ArrayList<ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.DataSet>>();
+      List<DataSet> retrievedDatasetsAll = null;
+      List<DataSet> retrievedDatasets = new ArrayList<>();
+      Map<String, ArrayList<DataSet>> datasetFilter = new HashMap<>();
 
-      // clear download queue for new view
+      // Clear download queue for new view
       PortletSession portletSession = ((ProjectBrowserPortlet) UI.getCurrent()).getPortletSession();
       portletSession.setAttribute("qbic_download", new HashMap<String, SimpleEntry<String, Long>>(),
           PortletSession.APPLICATION_SCOPE);
-      Map<String, Sample> checkedTestSamples = new HashMap<String, Sample>();
+      Map<String, Sample> checkedTestSamples = new HashMap<>();
 
       // data for complex xml properties
       StudyXMLParser xmlParser = new StudyXMLParser();
-      // Map<String, List<Property>> propertiesForSamples = datahandler.getPropertiesForSamples();
-      // Set<String> factorLabels = datahandler.getFactorLabels();
-      // Map<Pair<String, String>, Property> factorsForSamples =
-      // datahandler.getFactorsForLabelsAndSamples();
 
       switch (type) {
         case "project":
           String projectIdentifier = id;
-          retrievedDatasetsAll = datahandler.getOpenBisClient()
-              .getDataSetsOfProjectByIdentifierWithSearchCriteria(projectIdentifier);
+          retrievedDatasetsAll = datahandler.getOpenBisClient().getDataSetsOfProject(projectIdentifier);
 
-          for (ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.DataSet ds : retrievedDatasetsAll) {
+          for (DataSet ds : retrievedDatasetsAll) {
 
-            ArrayList<ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.DataSet> values =
-                datasetFilter.get(ds.getSampleIdentifierOrNull());
+            ArrayList<DataSet> values =
+                datasetFilter.get(ds.getSample().getIdentifier().toString());
 
             if (values == null) {
-              values = new ArrayList<ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.DataSet>();
-              datasetFilter.put(ds.getSampleIdentifierOrNull(), values);
+              values = new ArrayList<>();
+              datasetFilter.put(ds.getSample().getIdentifier().toString(), values);
             }
             values.add(ds);
           }
 
           if (filterFor.equals("measured")) {
-            BeanItemContainer<TestSampleBean> samplesContainer =
-                new BeanItemContainer<TestSampleBean>(TestSampleBean.class);
+            BeanItemContainer<TestSampleBean> samplesContainer = new BeanItemContainer<>(TestSampleBean.class);
 
-            List<Sample> allSamples = datahandler.getOpenBisClient()
-                .getSamplesWithParentsAndChildrenOfProjectBySearchService(id);
+            List<Sample> allSamples = datahandler.getOpenBisClient().getSamplesOfProject(id);
 
             for (Sample sample : allSamples) {
               checkedTestSamples.put(sample.getCode(), sample);
-              if (sample.getSampleTypeCode().equals("Q_TEST_SAMPLE")) {
+              if (sample.getType().getCode().equals("Q_TEST_SAMPLE")) {
                 Map<String, String> sampleProperties = sample.getProperties();
                 TestSampleBean newBean = new TestSampleBean();
                 newBean.setCode(sample.getCode());
-                newBean.setId(sample.getIdentifier());
-                newBean.setType(sample.getSampleTypeCode());
+                newBean.setId(sample.getIdentifier().toString());
+                newBean.setType(sample.getType().getCode());
                 newBean.setSampleType(sampleProperties.get("Q_SAMPLE_TYPE"));
                 newBean.setAdditionalInfo(sampleProperties.get("Q_ADDITIONAL_INFO"));
                 newBean.setExternalDB(sampleProperties.get("Q_EXTERNALDB_ID"));
@@ -233,26 +198,26 @@ public class LevelComponent extends CustomComponent {
 
                 samplesContainer.addBean(newBean);
 
-                ArrayList<ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.DataSet> foundDataset =
-                    datasetFilter.get(sample.getIdentifier());
+                ArrayList<DataSet> foundDataset =
+                    datasetFilter.get(sample.getIdentifier().toString());
 
                 if (foundDataset != null) {
                   retrievedDatasets.addAll(foundDataset);
                 }
 
                 for (Sample child : sample.getChildren()) {
-                  foundDataset = datasetFilter.get(child.getIdentifier());
+                  foundDataset = datasetFilter.get(child.getIdentifier().toString());
                   if (foundDataset != null) {
                     retrievedDatasets.addAll(foundDataset);
                   }
                 }
-              } else if (sample.getSampleTypeCode().equals("Q_MHC_LIGAND_EXTRACT")) {
+              } else if (sample.getType().getCode().equals("Q_MHC_LIGAND_EXTRACT")) {
 
                 Map<String, String> sampleProperties = sample.getProperties();
                 TestSampleBean newBean = new TestSampleBean();
                 newBean.setCode(sample.getCode());
-                newBean.setId(sample.getIdentifier());
-                newBean.setType(sample.getSampleTypeCode());
+                newBean.setId(sample.getIdentifier().toString());
+                newBean.setType(sample.getType().getCode());
                 newBean.setSampleType(sampleProperties.get("Q_MHC_CLASS"));
                 newBean.setAdditionalInfo(sampleProperties.get("Q_ANTIBODY"));
                 newBean.setExternalDB(sampleProperties.get("Q_EXTERNALDB_ID"));
@@ -264,15 +229,14 @@ public class LevelComponent extends CustomComponent {
 
                 samplesContainer.addBean(newBean);
 
-                ArrayList<ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.DataSet> foundDataset =
-                    datasetFilter.get(sample.getIdentifier());
+                ArrayList<DataSet> foundDataset = datasetFilter.get(sample.getIdentifier().toString());
 
                 if (foundDataset != null) {
                   retrievedDatasets.addAll(foundDataset);
                 }
 
                 for (Sample child : sample.getChildren()) {
-                  foundDataset = datasetFilter.get(child.getIdentifier());
+                  foundDataset = datasetFilter.get(child.getIdentifier().toString());
                   if (foundDataset != null) {
                     retrievedDatasets.addAll(foundDataset);
                   }
@@ -366,25 +330,25 @@ public class LevelComponent extends CustomComponent {
             this.datasetTable.setPageLength(Math.max(3, Math.min(numberOfDatasets, 10)));
           } else if (filterFor.equals("results")) {
             BeanItemContainer<TestSampleBean> samplesContainer =
-                new BeanItemContainer<TestSampleBean>(TestSampleBean.class);
+                new BeanItemContainer<>(TestSampleBean.class);
 
-            List<Sample> allSamples = datahandler.getOpenBisClient()
-                .getSamplesWithParentsAndChildrenOfProjectBySearchService(projectIdentifier);
+            List<Sample> allSamples = datahandler.getOpenBisClient().getSamplesOfProject(projectIdentifier);
 
             for (Sample sample : allSamples) {
               checkedTestSamples.put(sample.getCode(), sample);
-              if (!sample.getSampleTypeCode().equals("Q_TEST_SAMPLE")
-                  && !sample.getSampleTypeCode().equals("Q_MICROARRAY_RUN")
-                  && !sample.getSampleTypeCode().equals("Q_MS_RUN")
-                  && !sample.getSampleTypeCode().equals("Q_BIOLOGICAL_SAMPLE")
-                  && !sample.getSampleTypeCode().equals("Q_BIOLOGICAL_ENTITY")
-                  && !sample.getSampleTypeCode().equals("Q_NGS_SINGLE_SAMPLE_RUN")) {
+
+              if (!sample.getType().getCode().equals("Q_TEST_SAMPLE")
+                  && !sample.getType().getCode().equals("Q_MICROARRAY_RUN")
+                  && !sample.getType().getCode().equals("Q_MS_RUN")
+                  && !sample.getType().getCode().equals("Q_BIOLOGICAL_SAMPLE")
+                  && !sample.getType().getCode().equals("Q_BIOLOGICAL_ENTITY")
+                  && !sample.getType().getCode().equals("Q_NGS_SINGLE_SAMPLE_RUN")) {
 
                 Map<String, String> sampleProperties = sample.getProperties();
                 TestSampleBean newBean = new TestSampleBean();
                 newBean.setCode(sample.getCode());
-                newBean.setId(sample.getIdentifier());
-                newBean.setType(prettyNameMapper.getPrettyName(sample.getSampleTypeCode()));
+                newBean.setId(sample.getIdentifier().toString());
+                newBean.setType(prettyNameMapper.getPrettyName(sample.getType().getCode()));
                 newBean.setAdditionalInfo(sampleProperties.get("Q_ADDITIONAL_INFO"));
                 newBean.setSecondaryName(sampleProperties.get("Q_SECONDARY_NAME"));
 
@@ -394,19 +358,18 @@ public class LevelComponent extends CustomComponent {
 
                 samplesContainer.addBean(newBean);
 
-                ArrayList<ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.DataSet> foundDataset =
-                    datasetFilter.get(sample.getIdentifier());
+                ArrayList<DataSet> foundDataset = datasetFilter.get(sample.getIdentifier().toString());
 
                 if (foundDataset != null) {
-                  for (ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.DataSet ds : foundDataset) {
+                  for (DataSet ds : foundDataset) {
                     // we don't want to show project data or log files in the results tab
-                    if (ds.getDataSetTypeCode().equals("Q_PROJECT_DATA")) {
+                    if (ds.getType().getCode().equals("Q_PROJECT_DATA")) {
                       if (ds.getProperties().get("Q_ATTACHMENT_TYPE").equals("INFORMATION")) {
                         continue;
                       } else {
                         retrievedDatasets.add(ds);
                       }
-                    } else if (ds.getDataSetTypeCode().contains("LOGS")) {
+                    } else if (ds.getType().getCode().contains("LOGS")) {
                       continue;
                     } else {
                       retrievedDatasets.add(ds);
@@ -455,8 +418,8 @@ public class LevelComponent extends CustomComponent {
         case "experiment":
 
           String experimentIdentifier = id;
-          retrievedDatasets = datahandler.getOpenBisClient()
-              .getDataSetsOfExperimentByCodeWithSearchCriteria(experimentIdentifier);
+          retrievedDatasets =
+                  datahandler.getOpenBisClient().getDataSetsOfExperimentByIdentifier(experimentIdentifier);
           break;
 
         case "sample":
@@ -467,7 +430,7 @@ public class LevelComponent extends CustomComponent {
 
         default:
           retrievedDatasets =
-              new ArrayList<ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.DataSet>();
+              new ArrayList<DataSet>();
           break;
       }
 
@@ -494,9 +457,11 @@ public class LevelComponent extends CustomComponent {
         Map<String, String> samples = new HashMap<String, String>();
 
         // project same for all datasets
-        String projectCode = retrievedDatasets.get(0).getExperimentIdentifier().split("/")[2];
-        for (ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.DataSet dataset : retrievedDatasets) {
-          samples.put(dataset.getCode(), dataset.getSampleIdentifierOrNull().split("/")[2]);
+        String projectCode =
+                retrievedDatasets.get(0).getExperiment().getIdentifier().toString().split("/")[2];
+
+        for (DataSet dataset : retrievedDatasets) {
+          samples.put(dataset.getCode(), dataset.getSample().getIdentifier().toString().split("/")[2]);
         }
 
         List<DatasetBean> dsBeans = datahandler.queryDatasetsForFolderStructure(retrievedDatasets);

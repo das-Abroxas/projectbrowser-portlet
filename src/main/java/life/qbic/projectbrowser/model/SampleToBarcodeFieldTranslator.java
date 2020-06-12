@@ -19,13 +19,16 @@ package life.qbic.projectbrowser.model;
 
 import java.util.Map;
 
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.sample.Sample;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.Sample;
 
 import com.vaadin.ui.ComboBox;
 
+/**
+ *
+ */
 public class SampleToBarcodeFieldTranslator {
 
   private static final Logger LOG = LogManager.getLogger(SampleToBarcodeFieldTranslator.class);

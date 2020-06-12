@@ -32,6 +32,7 @@ import java.util.Set;
 
 import javax.portlet.PortletSession;
 
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.dataset.DataSet;
 import life.qbic.portal.portlet.ProjectBrowserPortlet;
 import life.qbic.portal.utils.PortalUtils;
 import org.tepi.filtertable.FilterTreeTable;
@@ -299,6 +300,7 @@ public class DatasetView extends VerticalLayout implements View {
         State state = (State) UI.getCurrent().getSession().getAttribute("state");
         ArrayList<String> message = new ArrayList<String>();
         message.add("DataSetView");
+
         if (selectedValues != null && selectedValues.size() == 1) {
           Iterator<Object> iterator = selectedValues.iterator();
           Object next = iterator.next();
@@ -307,14 +309,12 @@ public class DatasetView extends VerticalLayout implements View {
           message.add(datasetType);
           String project = (String) table.getItem(next).getItemProperty("Project").getValue();
 
-          String space = datahandler.getOpenBisClient().getProjectByCode(project).getSpaceCode();// .getIdentifier().split("/")[1];
+          String space = datahandler.getOpenBisClient().getProjectByCode(project).getSpace().getCode();
           message.add(project);
           message.add((String) table.getItem(next).getItemProperty("Sample").getValue());
-          // message.add((String) table.getItem(next).getItemProperty("Sample Type").getValue());
           message.add((String) table.getItem(next).getItemProperty("dl_link").getValue());
           message.add((String) table.getItem(next).getItemProperty("File Name").getValue());
           message.add(space);
-          // state.notifyObservers(message);
         } else {
           message.add("null");
         } // TODO
@@ -517,19 +517,18 @@ public class DatasetView extends VerticalLayout implements View {
       datasetContainer.addContainerProperty("dl_link", String.class, null);
       datasetContainer.addContainerProperty("CODE", String.class, null);
 
-      List<ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.DataSet> retrievedDatasets = null;
+      List<DataSet> retrievedDatasets = null;
 
       switch (map.get("type")) {
         case "project":
           String projectIdentifier = map.get("id");
-          retrievedDatasets = datahandler.getOpenBisClient()
-              .getDataSetsOfProjectByIdentifierWithSearchCriteria(projectIdentifier);
+          retrievedDatasets = datahandler.getOpenBisClient().getDataSetsOfProject(projectIdentifier);
           break;
 
         case "experiment":
           String experimentIdentifier = map.get("id");
           retrievedDatasets = datahandler.getOpenBisClient()
-              .getDataSetsOfExperimentByCodeWithSearchCriteria(experimentIdentifier);
+              .getDataSetsOfExperimentByIdentifier(experimentIdentifier);
           break;
 
         case "sample":
@@ -539,8 +538,7 @@ public class DatasetView extends VerticalLayout implements View {
           break;
 
         default:
-          retrievedDatasets =
-              new ArrayList<ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.DataSet>();
+          retrievedDatasets = new ArrayList<>();
           break;
       }
 
@@ -550,12 +548,12 @@ public class DatasetView extends VerticalLayout implements View {
             Type.WARNING_MESSAGE, true).show(Page.getCurrent());
       } else {
 
-        Map<String, String> samples = new HashMap<String, String>();
+        Map<String, String> samples = new HashMap<>();
 
         // project same for all datasets
-        String projectCode = retrievedDatasets.get(0).getExperimentIdentifier().split("/")[2];
-        for (ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.DataSet dataset : retrievedDatasets) {
-          samples.put(dataset.getCode(), dataset.getSampleIdentifierOrNull().split("/")[2]);
+        String projectCode = retrievedDatasets.get(0).getExperiment().getIdentifier().toString().split("/")[2];
+        for (DataSet dataset : retrievedDatasets) {
+          samples.put(dataset.getCode(), dataset.getSample().getIdentifier().toString().split("/")[2]);
         }
 
         List<DatasetBean> dsBeans = datahandler.queryDatasetsForFolderStructure(retrievedDatasets);

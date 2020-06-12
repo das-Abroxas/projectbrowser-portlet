@@ -29,18 +29,17 @@ import java.util.regex.Pattern;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.experiment.Experiment;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 import org.xml.sax.InputSource;
 
-import ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.Experiment;
-
+/**
+ *
+ */
 public class SearchResultsExperimentBean implements Comparable<Object>, Serializable {
 
-  /**
-   * 
-   */
   private static final long serialVersionUID = 3968206160585657676L;
   private String experimentID;
   private String experimentName;
@@ -48,9 +47,8 @@ public class SearchResultsExperimentBean implements Comparable<Object>, Serializ
   private String matchedField;
 
 
-
   public SearchResultsExperimentBean(Experiment e, String query) {
-    experimentID = e.getIdentifier();
+    experimentID = e.getIdentifier().toString();
     experimentName = this.extractSampleProperty(e, "Q_SECONDARY_NAME");
     queryString = query;
     matchedField = findMatchedFields(e);

@@ -6,7 +6,7 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.Experiment;
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.experiment.Experiment;
 import life.qbic.projectbrowser.helpers.BarcodeFunctions;
 
 /**
@@ -75,8 +75,8 @@ public class ExperimentTypeComparator implements Comparator<Experiment> {
 
   @Override
   public int compare(Experiment o1, Experiment o2) {
-    String t1 = o1.getExperimentTypeCode();
-    String t2 = o2.getExperimentTypeCode();
+    String t1 = o1.getType().getCode();
+    String t2 = o2.getType().getCode();
     int i1 = Integer.MAX_VALUE;
     int i2 = Integer.MAX_VALUE;
     if (hierarchy.containsKey(t1))

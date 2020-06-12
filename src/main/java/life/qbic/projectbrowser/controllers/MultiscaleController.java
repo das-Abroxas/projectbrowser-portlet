@@ -15,32 +15,8 @@
  *******************************************************************************/
 package life.qbic.projectbrowser.controllers;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import life.qbic.projectbrowser.model.notes.Note;
-import life.qbic.projectbrowser.model.notes.Notes;
-
-import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.EnumSet;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
-import javax.xml.bind.JAXBElement;
-import javax.xml.bind.JAXBException;
-import javax.xml.namespace.QName;
-
-import life.qbic.projectbrowser.helpers.HistoryReader;
-import life.qbic.openbis.openbisclient.OpenBisClient;
-import ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.Experiment;
-import ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.Sample;
-import ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.SampleFetchOption;
-import ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.SearchCriteria;
-import ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.SearchCriteria.MatchClause;
-import ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.SearchCriteria.MatchClauseAttribute;
-import ch.systemsx.cisd.openbis.generic.shared.dto.EventPE.EntityType;
-
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.experiment.Experiment;
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.sample.Sample;
 import com.liferay.portal.kernel.exception.PortalException;
 import com.liferay.portal.kernel.exception.SystemException;
 import com.liferay.portal.kernel.util.PropsKeys;
@@ -49,6 +25,21 @@ import com.liferay.portal.model.Company;
 import com.liferay.portal.model.User;
 import com.liferay.portal.service.CompanyLocalServiceUtil;
 import com.liferay.portal.service.UserLocalServiceUtil;
+
+import life.qbic.openbis.openbisclient.OpenBisClient;
+import life.qbic.projectbrowser.helpers.HistoryReader;
+import life.qbic.projectbrowser.model.EntityType;
+import life.qbic.projectbrowser.model.notes.Note;
+import life.qbic.projectbrowser.model.notes.Notes;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
+import javax.xml.bind.JAXBElement;
+import javax.xml.bind.JAXBException;
+import javax.xml.namespace.QName;
+import java.io.Serializable;
+import java.util.*;
 
 public class MultiscaleController implements Serializable {
 
@@ -82,22 +73,36 @@ public class MultiscaleController implements Serializable {
   public boolean update(String id, EntityType type) {
     jaxbelem = null;
     String xml = null;
+
     if (type.equals(EntityType.EXPERIMENT)) {
-      Experiment e = openbis.getExperimentById2(id).get(0);
+      Experiment e = openbis.getExperiment(id);
       xml = e.getProperties().get("Q_NOTES");
       currentCode = e.getCode();
+
     } else {
+/*
       EnumSet<SampleFetchOption> fetchOptions = EnumSet.of(SampleFetchOption.PROPERTIES);
       SearchCriteria sc = new SearchCriteria();
       sc.addMatchClause(MatchClause.createAttributeMatch(MatchClauseAttribute.CODE, id));
+
       List<Sample> samples = openbis.getOpenbisInfoService()
           .searchForSamplesOnBehalfOfUser(openbis.getSessionToken(), sc, fetchOptions, "admin");
+
       if (samples != null && samples.size() == 1) {
         Sample sample = samples.get(0);
         currentCode = sample.getCode();
         xml = sample.getProperties().get("Q_NOTES");
       }
+*/
+
+      Sample sample = openbis.getSample(id);
+
+      if (sample != null) {
+        currentCode = sample.getCode();
+        xml = sample.getProperties().get("Q_NOTES");
+      }
     }
+
     try {
       if (xml != null) {
         jaxbelem = HistoryReader.parseNotes(xml);
@@ -115,12 +120,6 @@ public class MultiscaleController implements Serializable {
     return false;
   }
 
-//  public BeanItemContainer<Note> getContainer() {
-//    BeanItemContainer<Note> container = new BeanItemContainer<Note>(Note.class);
-//    container.addAll(getNotes());
-//    return container;
-//  }
-
   public String getUser() {
     // TODO Auto-generated method stub
     return user;
@@ -134,34 +133,17 @@ public class MultiscaleController implements Serializable {
       params.put("user", note.getUsername());
       params.put("comment", note.getComment());
       params.put("time", note.getTime());
-      openbis.ingest("DSS1", "add-to-xml-note", params);
+      openbis.triggerIngestionService("add-to-xml-note", params);
       return true;
     }
     return false;
-  }
-
-  public String getcurrentCode() {
-    return currentCode;
-  }
-
-  public List<String> getSearchResults(String samplecode) {
-    EnumSet<SampleFetchOption> fetchOptions = EnumSet.of(SampleFetchOption.PROPERTIES);
-    SearchCriteria sc = new SearchCriteria();
-    sc.addMatchClause(
-        MatchClause.createAttributeMatch(MatchClauseAttribute.CODE, samplecode + "*"));
-    List<Sample> samples = openbis.getOpenbisInfoService()
-        .searchForSamplesOnBehalfOfUser(openbis.getSessionToken(), sc, fetchOptions, user);
-    List<String> ret = new ArrayList<String>(samples.size());
-    for (Sample sample : samples) {
-      ret.add(sample.getCode());
-    }
-    return ret;
   }
 
   public String getLiferayUser(String userID) {
     Company company = null;
     long companyId = 1;
     String userString = "";
+
     try {
       String webId = PropsUtil.get(PropsKeys.COMPANY_DEFAULT_WEB_ID);
       company = CompanyLocalServiceUtil.getCompanyByWebId(webId);
@@ -169,20 +151,20 @@ public class MultiscaleController implements Serializable {
       LOG.debug(
           String.format("Using webId %s and companyId %d to get Portal User", webId, companyId));
     } catch (PortalException | SystemException e) {
-      LOG
-          .error("liferay error, could not retrieve companyId. Trying default companyId, which is "
-              + companyId, e.getStackTrace());
+      LOG.error("Liferay error, could not retrieve companyId. Trying default companyId, which is " + companyId);
+      e.printStackTrace();
     }
 
     User user = null;
     try {
       user = UserLocalServiceUtil.getUserByScreenName(companyId, userID);
-    } catch (PortalException | SystemException e) {
-    }
+
+    } catch (PortalException | SystemException e) { }
 
     if (user == null) {
-      LOG.warn(String.format("Openbis user %s appears to not exist in Portal", userID));
+      LOG.warn(String.format("openBIS user %s appears to not exist in Portal", userID));
       userString = userID;
+
     } else {
       String fullname = user.getFullName();
       String email = user.getEmailAddress();

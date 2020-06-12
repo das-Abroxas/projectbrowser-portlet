@@ -34,9 +34,10 @@ import com.vaadin.ui.UI;
 import com.vaadin.ui.VerticalLayout;
 import com.vaadin.ui.themes.ValoTheme;
 
-import ch.systemsx.cisd.openbis.generic.shared.dto.EventPE.EntityType;
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.entitytype.EntityKind;
 
 import life.qbic.projectbrowser.controllers.MultiscaleController;
+import life.qbic.projectbrowser.model.EntityType;
 import life.qbic.projectbrowser.model.notes.Note;
 
 public class MultiscaleComponent extends CustomComponent {

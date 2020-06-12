@@ -17,6 +17,7 @@ package life.qbic.projectbrowser.views;
 
 import life.qbic.projectbrowser.helpers.UglyToPrettyNameMapper;
 import life.qbic.projectbrowser.helpers.Utils;
+import life.qbic.projectbrowser.model.EntityType;
 import life.qbic.projectbrowser.model.SampleBean;
 import life.qbic.projectbrowser.controllers.*;
 import life.qbic.projectbrowser.components.DatasetComponent;
@@ -33,8 +34,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import org.tepi.filtertable.FilterTreeTable;
-
-import ch.systemsx.cisd.openbis.generic.shared.dto.EventPE.EntityType;
 
 import com.vaadin.data.util.HierarchicalContainer;
 import com.vaadin.navigator.View;
@@ -334,7 +333,7 @@ public class SampleView extends VerticalLayout implements View {
         State state = (State) UI.getCurrent().getSession().getAttribute("state");
         ArrayList<String> message = new ArrayList<String>();
         message.add("clicked");
-        message.add(currentBean.getParents().get(0).getIdentifier());
+        message.add(currentBean.getParents().get(0).getIdentifier().toString());
         message.add("sample");
         state.notifyObservers(message);
       }

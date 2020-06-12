@@ -219,7 +219,7 @@ public class DatasetBean implements Serializable {
   }
 
   /**
-   * same as {@link getName}
+   * same as {@link #getName() getName}
    * 
    * @return
    */
@@ -228,7 +228,7 @@ public class DatasetBean implements Serializable {
   }
 
   /**
-   * same as {@link setName}
+   * same as {@link #setName(String) setName}
    * 
    * @return
    */

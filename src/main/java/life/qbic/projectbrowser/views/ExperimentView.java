@@ -17,6 +17,7 @@ package life.qbic.projectbrowser.views;
 
 import javax.xml.bind.JAXBException;
 
+import life.qbic.projectbrowser.model.EntityType;
 import org.tepi.filtertable.FilterTable;
 
 import com.vaadin.navigator.View;
@@ -33,8 +34,6 @@ import com.vaadin.ui.Label;
 import com.vaadin.ui.TabSheet;
 import com.vaadin.ui.VerticalLayout;
 import com.vaadin.ui.themes.ValoTheme;
-
-import ch.systemsx.cisd.openbis.generic.shared.dto.EventPE.EntityType;
 
 import life.qbic.projectbrowser.controllers.*;
 import life.qbic.projectbrowser.helpers.UglyToPrettyNameMapper;

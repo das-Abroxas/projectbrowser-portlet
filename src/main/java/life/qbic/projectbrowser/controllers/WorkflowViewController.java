@@ -15,55 +15,43 @@
  *******************************************************************************/
 package life.qbic.projectbrowser.controllers;
 
-import java.io.Serializable;
-import java.net.ConnectException;
-import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
-import javax.xml.bind.JAXBException;
-
-import org.apache.commons.lang.NotImplementedException;
-import org.apache.commons.lang3.tuple.ImmutablePair;
-
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.dataset.DataSet;
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.experiment.Experiment;
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.sample.Sample;
+import ch.ethz.sis.openbis.generic.dssapi.v3.dto.datasetfile.DataSetFile;
 import com.vaadin.data.Container;
 import com.vaadin.data.util.BeanItemContainer;
 
-import ch.systemsx.cisd.openbis.dss.client.api.v1.DataSet;
-import ch.systemsx.cisd.openbis.dss.generic.shared.api.v1.FileInfoDssDTO;
-import ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.Experiment;
-import ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.Sample;
-import ch.systemsx.cisd.openbis.plugin.query.shared.api.v1.dto.QueryTableModel;
+import de.uni_tuebingen.qbic.beans.DatasetBean;
 
-import life.qbic.projectbrowser.views.DatasetView;
-import life.qbic.projectbrowser.views.ExperimentView;
-import life.qbic.projectbrowser.views.PatientView;
-import life.qbic.projectbrowser.views.ProjectView;
-import life.qbic.projectbrowser.views.SampleView;
-import life.qbic.projectbrowser.helpers.Utils;
 import life.qbic.openbis.openbisclient.OpenBisClient;
-
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
+import life.qbic.projectbrowser.helpers.Utils;
+import life.qbic.projectbrowser.views.*;
 import life.qbic.xml.manager.XMLParser;
 import life.qbic.xml.properties.Property;
 import life.qbic.xml.properties.PropertyType;
 
-// from workflow API
+import org.apache.commons.lang3.NotImplementedException;
+import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import submitter.SubmitFailedException;
 import submitter.Submitter;
 import submitter.Workflow;
 import submitter.parameters.Parameter;
 import submitter.parameters.ParameterSet;
-import de.uni_tuebingen.qbic.beans.DatasetBean;
 
+import javax.xml.bind.JAXBException;
+import java.io.Serializable;
+import java.net.ConnectException;
+import java.nio.file.Paths;
+import java.util.*;
+import java.util.stream.Collectors;
 
+/**
+ *
+ */
 public class WorkflowViewController {
   private DataHandler datahandler;
   private Submitter submitter;
@@ -76,7 +64,7 @@ public class WorkflowViewController {
   private final String wf_started = "Q_WF_STARTED_AT";
   private final String wf_status = "Q_WF_STATUS";
   private final String wf_name = "Q_WF_NAME";
-  private final String openbis_dss = "DSS1"; // TODO this shouldn't be hardcoded
+  private final String openbis_dss = "DSS1"; // ToDo: This shouldn't be hardcoded but yet it is
 
   // used by Microarray QC Workflow. See function mapExperimentalProperties
   private Map<String, String> expProps;
@@ -101,29 +89,22 @@ public class WorkflowViewController {
    * @param datasets
    * @return
    */
-  public Container fillTable(
-      List<ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.DataSet> datasets, String projectID) {
-    HashMap<String, ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.DataSet> dataMap =
-        new HashMap<String, ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.DataSet>();
-    BeanItemContainer<DatasetBean> container =
-        new BeanItemContainer<DatasetBean>(DatasetBean.class);
+  public Container fillTable(List<DataSet> datasets, String projectID) {
+    HashMap<String, DataSet> dataMap = new HashMap<>();
+    BeanItemContainer<DatasetBean> container = new BeanItemContainer<>(DatasetBean.class);
 
-    for (ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.DataSet ds : datasets) {
+    for (DataSet ds : datasets)
       dataMap.put(ds.getCode(), ds);
-    }
 
-    List<life.qbic.projectbrowser.model.DatasetBean> datasetBeans =
-        new ArrayList<life.qbic.projectbrowser.model.DatasetBean>();
-    datasetBeans = datahandler.queryDatasetsForFiles(datasets);
-
-    List<String> fileNames = new ArrayList<String>();
+    List<life.qbic.projectbrowser.model.DatasetBean> datasetBeans = datahandler.queryDatasetsForFiles(datasets);
+    List<String> fileNames = new ArrayList<>();
 
     for (life.qbic.projectbrowser.model.DatasetBean bean : datasetBeans) {
       fileNames.add(bean.getFileName());
 
       DatasetBean newBean = new DatasetBean(bean.getFileName(),
-          dataMap.get(bean.getCode()).getDataSetTypeCode(), bean.getCode(), bean.getDssPath(),
-          dataMap.get(bean.getCode()).getSampleIdentifierOrNull());
+          dataMap.get(bean.getCode()).getType().getCode(), bean.getCode(), bean.getDssPath(),
+          dataMap.get(bean.getCode()).getSample().getIdentifier().toString());
 
       if (dataMap.get(bean.getCode()).getProperties() != null) {
         newBean.setProperties(dataMap.get(bean.getCode()).getProperties());
@@ -169,20 +150,19 @@ public class WorkflowViewController {
 
     LOG.debug("Space: " + space);
     LOG.debug("Project: " + project);
-    LOG.debug("StringBuilder: "
-        + new StringBuilder("/").append(space).append("/").append(project).toString());
+    LOG.debug("StringBuilder: " + new StringBuilder("/").append(space).append("/").append(project).toString());
 
-    String code = project + "E" + Integer.toString(last + 1);
+    String code = String.format("%sE%d", project, (last+1));
 
     LOG.debug("Code: " + code);
 
-    Map<String, Object> params = new HashMap<String, Object>();
+    Map<String, Object> params = new HashMap<>();
     params.put("code", code);
     params.put("type", typecode);
     params.put("project", project);
     params.put("space", space);
 
-    Map<String, Object> properties = new HashMap<String, Object>();
+    Map<String, Object> properties = new HashMap<>();
     properties.put(wf_name, wfName);
     properties.put(wf_version, wfVersion);
     properties.put(wf_executer, userID);
@@ -192,7 +172,7 @@ public class WorkflowViewController {
 
     params.put("properties", properties);
 
-    datahandler.getOpenBisClient().ingest(openbis_dss, "register-exp", params);
+    datahandler.getOpenBisClient().triggerIngestionService("register-exp", params);
     return code;
   }
 
@@ -208,21 +188,25 @@ public class WorkflowViewController {
   public String registerWFSample(String space, String project, String experiment, String typecode,
       List<String> parents, List<DatasetBean> datasets) {
     int last = 0;
-    for (Sample s : datahandler.getOpenBisClient().getSamplesofExperiment((new StringBuilder("/"))
-        .append(space).append("/").append(project).append("/").append(experiment).toString())) {
+    for (Sample s : datahandler.getOpenBisClient().getSamplesOfExperiment(
+            (new StringBuilder("/"))
+                    .append(space).append("/")
+                    .append(project).append("/")
+                    .append(experiment).toString())) {
       String[] codeSplit = s.getCode().split("R");
       String number = codeSplit[codeSplit.length - 1];
       int num = 0;
+
       try {
         num = Integer.parseInt(number);
-      } catch (NumberFormatException ex) {
-      }
+      } catch (NumberFormatException ex) { }
+
       last = Math.max(num, last);
     }
 
-    String code =
-        (new StringBuilder(experiment)).append("R").append(Integer.toString(last + 1)).toString();
-    Map<String, Object> params = new HashMap<String, Object>();
+    String code = String.format("%sR%d", experiment, (last+1));
+
+    Map<String, Object> params = new HashMap<>();
     params.put("code", code);
     params.put("type", typecode);
 
@@ -243,11 +227,11 @@ public class WorkflowViewController {
 
     String secName = result.length() > 0 ? result.substring(0, result.length() - 1) : "";
 
-    Map<String, Object> properties = new HashMap<String, Object>();
+    Map<String, Object> properties = new HashMap<>();
     properties.put("Q_ADDITIONAL_INFO", secName);
     params.put("properties", properties);
 
-    datahandler.getOpenBisClient().ingest(openbis_dss, "register-samp", params);
+    datahandler.getOpenBisClient().triggerIngestionService("register-samp", params);
     return code;
   }
 
@@ -262,12 +246,12 @@ public class WorkflowViewController {
    * @param wfID workflow ID created by the submitter for this workflow experiment
    */
   public void setWorkflowID(String space, String project, String experiment, String wfID) {
-    Map<String, Object> params = new HashMap<String, Object>();
+    Map<String, Object> params = new HashMap<>();
     params.put("identifier", "/" + space + "/" + project + "/" + experiment);
-    Map<String, Object> properties = new HashMap<String, Object>();
+    Map<String, Object> properties = new HashMap<>();
     properties.put(wf_id, wfID);
     params.put("properties", properties);
-    datahandler.getOpenBisClient().ingest(openbis_dss, "update-experiment-metadata", params);
+    datahandler.getOpenBisClient().triggerIngestionService( "update-experiment-metadata", params);
   }
 
   /**
@@ -295,8 +279,8 @@ public class WorkflowViewController {
     try {
       BeanItemContainer<Workflow> wfs = submitter.getAvailableSuitableWorkflows(fileType);
       for (Workflow wf : wfs.getItemIds()) {
-        if (expDesignWfs.contains(wf.getName()))// TODO add other workflows to the list that are
-                                                // needed
+        if (expDesignWfs.contains(wf.getName()))
+          // ToDo: Add other workflows to the list that are needed
           mapExperimentalProperties(projectID, fileNames);
       }
       return wfs;
@@ -324,14 +308,12 @@ public class WorkflowViewController {
 
 
   public BeanItemContainer<DatasetBean> getcontainer(String type, String id) {
-    List<ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.DataSet> datasets =
-        new ArrayList<ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.DataSet>();
+    List<DataSet> datasets = new ArrayList<>();
 
     switch (type) {
       case "project":
         // datasets = openbis.getClientDatasetsOfProjectByIdentifierWithSearchCriteria(id);
-        datasets =
-            datahandler.getOpenBisClient().getDataSetsOfProjectByIdentifierWithSearchCriteria(id);
+        datasets = datahandler.getOpenBisClient().getDataSetsOfProject(id);
         break;
 
       case "experiment":
@@ -349,24 +331,66 @@ public class WorkflowViewController {
   }
 
   private void mapExperimentalProperties(String id, List<String> fileNames) {
-    Map<String, Object> params = new HashMap<String, Object>();
-    List<String> codes = new ArrayList<String>();
-    for (Sample s : datahandler.getOpenBisClient().getSamplesOfProjectBySearchService(id))
+    Map<String, String> fileProps = new HashMap<>();
+    Set<String> factorNames       = new HashSet<>();
+    Set<String> secondaryNames    = new HashSet<>();
+    Set<String> factorLabels      = datahandler.getFactorLabels();
+
+    for (Sample s : datahandler.getOpenBisClient().getSamplesOfProject(id)) {
+      List<String> matches = getMatchingStrings(fileNames, s.getCode());
+      List<Property> properties = new ArrayList<>();
+
+      for (String label : factorLabels) {
+        Property f = datahandler.getFactorsForLabelsAndSamples().get(new ImmutablePair<>(label, s.getCode()));
+
+        if (f != null) {
+          properties.add(f);
+        }
+      }
+
+      if (!matches.isEmpty()) {
+        for (String match : matches) {
+          StringBuilder row = new StringBuilder();
+          String externalID    = s.getProperties().get("Q_EXTERNALDB_ID");
+          String secondaryName = s.getProperties().get("Q_SECONDARY_NAME");
+
+          while (secondaryNames.contains(secondaryName))
+            secondaryName += "1";
+          secondaryNames.add(secondaryName);
+          row.append(secondaryName);
+
+          for (Property f : properties) {
+            factorNames.add(f.getLabel());
+            String val = f.getValue();
+
+            if (f.hasUnit())
+              val += f.getUnit();
+            row.append("\t" + val);
+          }
+          fileProps.put(match, row.toString());
+        }
+      }
+    }
+    this.expProps = fileProps;
+    this.expFactors = factorNames;
+
+/*
+    Map<String, Object> params = new HashMap<>();
+    List<String> codes = new ArrayList<>();
+
+    for (Sample s : datahandler.getOpenBisClient().getSamplesOfProject(id))
       codes.add(s.getCode());
+
     params.put("codes", codes);
     QueryTableModel res =
         datahandler.getOpenBisClient().getAggregationService("get-property-tsv", params);
 
-    Set<String> factorNames = new HashSet<String>();
-    Map<String, String> fileProps = new HashMap<String, String>();
 
-    Set<String> secondaryNames = new HashSet<String>();
-    Set<String> factorLabels = datahandler.getFactorLabels();
 
     for (Serializable[] ss : res.getRows()) {
-
       String sampleCode = (String) ss[0];
-      List<Property> properties = new ArrayList<Property>();
+      List<Property> properties = new ArrayList<>();
+
       for (String label : factorLabels) {
         Property f =
             datahandler.getFactorsForLabelsAndSamples().get(new ImmutablePair<>(label, sampleCode));
@@ -398,11 +422,12 @@ public class WorkflowViewController {
     }
     this.expProps = fileProps;
     this.expFactors = factorNames;
+*/
   }
 
   /**
    * Finds the the matching strings in the list, e.g. sample codes in file names
-   * 
+   *
    * @param list The list of strings to check
    * @param substring The regular expression to use
    * @return List of matching Strings
@@ -520,7 +545,7 @@ public class WorkflowViewController {
       case SampleView.navigateToLabel:
         String expId = datahandler.getOpenBisClient()
             .getSampleByIdentifier(String.format("%s/%s", split[1], split[2]))
-            .getExperimentIdentifierOrNull();
+            .getExperiment().getIdentifier().toString();
         if (expId == null)
           return null;
         return getSpaceAndProjects(ExperimentView.navigateToLabel, expId);
@@ -540,13 +565,12 @@ public class WorkflowViewController {
       this.space = spaceCode;
       this.project = projectCode;
     }
-
   }
 
   /**
    * get for a {@link de.uni_tuebingen.qbic.beans.DatasetBean} file or directory the path it has on
    * the data store server.
-   * 
+   *
    * @param bean
    * @return full path of dataset
    * @throws IllegalArgumentException
@@ -554,16 +578,23 @@ public class WorkflowViewController {
   public String getDatasetsNfsPath(DatasetBean bean) throws IllegalArgumentException {
 
     try {
-      DataSet dataset =
-          datahandler.getOpenBisClient().getFacade().getDataSet(bean.getOpenbisCode());
-      String path = dataset.getDataSetDss().tryGetInternalPathInDataStore();
+      DataSet dataset = datahandler.getOpenBisClient().getDataSet(bean.getOpenbisCode());
+      // String path = dataset.getDataSetDss().tryGetInternalPathInDataStore();
+      String path = dataset.getPhysicalData().getLocation();
 
       if (bean.getFullPath().startsWith("original")) {
         path = Paths.get(path, bean.getFullPath()).toString();
+
       } else {
-        FileInfoDssDTO[] filelist = dataset.listFiles("original", false);
-        path = path + "/original/" + filelist[0].getPathInListing();
+        List<DataSetFile> datasetFiles = datahandler.getOpenBisClient()
+                .listDataSetFiles(dataset.getCode())
+                .stream()
+                .filter(dsf -> !dsf.getPath().isEmpty() || !dsf.getPath().equals("original"))
+                .collect(Collectors.toList());
+
+        path = path + "/original/" + datasetFiles.get(0).getPath();
       }
+
       // TODO get rid of hardocded paths
       path = path.replaceFirst("/mnt/" + openbis_dss, "/mnt/nfs/qbic");
       path = path.replaceFirst("/mnt/DSS_icgc", "/mnt/glusterfs/DSS_icgc");
@@ -582,7 +613,7 @@ public class WorkflowViewController {
 
   /**
    * Returns experimental factor names parsed from the properties of samples in this project
-   * 
+   *
    * @return Unique set of all experimental factors that are saved in Q_Properties of this project
    */
   public Set<String> getExperimentalFactors() {

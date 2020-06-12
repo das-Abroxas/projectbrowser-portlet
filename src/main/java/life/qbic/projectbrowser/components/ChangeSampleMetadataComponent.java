@@ -15,52 +15,34 @@
  *******************************************************************************/
 package life.qbic.projectbrowser.components;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-
-import javax.xml.bind.JAXBElement;
-import javax.xml.bind.JAXBException;
-
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.property.PropertyType;
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.sample.Sample;
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.vocabulary.Vocabulary;
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.vocabulary.VocabularyTerm;
+import com.vaadin.data.fieldgroup.FieldGroup;
+import com.vaadin.server.Page;
+import com.vaadin.shared.ui.MarginInfo;
+import com.vaadin.ui.*;
+import com.vaadin.ui.Button.ClickEvent;
+import com.vaadin.ui.Button.ClickListener;
+import com.vaadin.ui.themes.ValoTheme;
+import life.qbic.portal.utils.PortalUtils;
+import life.qbic.projectbrowser.controllers.DataHandler;
+import life.qbic.projectbrowser.controllers.State;
+import life.qbic.projectbrowser.helpers.Utils;
+import life.qbic.projectbrowser.model.PropertyBean;
+import life.qbic.xml.manager.StudyXMLParser;
+import life.qbic.xml.properties.Property;
+import life.qbic.xml.study.Qexperiment;
+import life.qbic.xml.study.Qproperty;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import com.vaadin.data.fieldgroup.FieldGroup;
-import com.vaadin.server.Page;
-import com.vaadin.shared.ui.MarginInfo;
-import com.vaadin.ui.Button;
-import com.vaadin.ui.Button.ClickEvent;
-import com.vaadin.ui.Button.ClickListener;
-import com.vaadin.ui.ComboBox;
-import com.vaadin.ui.CustomComponent;
-import com.vaadin.ui.Field;
-import com.vaadin.ui.FormLayout;
-import com.vaadin.ui.Label;
-import com.vaadin.ui.TextField;
-import com.vaadin.ui.VerticalLayout;
-import com.vaadin.ui.themes.ValoTheme;
-
-import ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.ControlledVocabularyPropertyType;
-import ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.PropertyType;
-import ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.Sample;
-import ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.VocabularyTerm;
-import life.qbic.datamodel.identifiers.ExperimentCodeFunctions;
-import life.qbic.portal.utils.PortalUtils;
-import life.qbic.projectbrowser.helpers.Utils;
-import life.qbic.projectbrowser.model.PropertyBean;
-import life.qbic.projectbrowser.controllers.*;
-
-// import life.qbic.xml.manager.XMLParser;
-import life.qbic.xml.manager.StudyXMLParser;
-import life.qbic.xml.properties.*;
-import life.qbic.xml.study.Qexperiment;
-import life.qbic.xml.study.Qproperty;
+import javax.xml.bind.JAXBElement;
+import javax.xml.bind.JAXBException;
+import java.util.*;
 
 public class ChangeSampleMetadataComponent extends CustomComponent {
   /**
@@ -203,7 +185,7 @@ public class ChangeSampleMetadataComponent extends CustomComponent {
           try {
             String newXML = parser.toString(newDesign);
             HashMap<String, Object> params = new HashMap<>();
-            String expID = sample.getExperimentIdentifierOrNull();
+            String expID = sample.getExperiment().getIdentifier().toString();
             String[] split = expID.split("E");
             String numSuffixOfExperiment = split[split.length - 1];
             String infoExpID = expID.replace("E" + numSuffixOfExperiment, "_INFO");
@@ -251,16 +233,17 @@ public class ChangeSampleMetadataComponent extends CustomComponent {
   }
 
   private Map<String, PropertyBean> getControlledVocabularies() {
-    Map<String, PropertyBean> controlledVocabularies = new HashMap<String, PropertyBean>();
+    Map<String, PropertyBean> controlledVocabularies = new HashMap<>();
 
     for (PropertyType p : completeProperties) {
-      if (p instanceof ControlledVocabularyPropertyType) {
 
-        ControlledVocabularyPropertyType controlled_vocab = (ControlledVocabularyPropertyType) p;
-        List<String> terms = new ArrayList<String>();
+      if ("CONTROLLEDVOCABULARY".equals(p.getDataType().toString())) {
+        Vocabulary controlled_vocab =
+                datahandler.getOpenBisClient().getVocabulary(p.getVocabulary().getCode());
+        List<String> terms = new ArrayList<>();
 
         for (VocabularyTerm term : controlled_vocab.getTerms()) {
-          terms.add(term.getCode().toString());
+          terms.add(term.getCode());
         }
 
         PropertyBean newVocab = new PropertyBean();
@@ -271,6 +254,7 @@ public class ChangeSampleMetadataComponent extends CustomComponent {
 
         controlledVocabularies.put(p.getCode(), newVocab);
       }
+
     }
     return controlledVocabularies;
   }

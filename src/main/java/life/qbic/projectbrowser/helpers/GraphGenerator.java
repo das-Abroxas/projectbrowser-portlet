@@ -17,38 +17,35 @@
  *******************************************************************************/
 package life.qbic.projectbrowser.helpers;
 
-import life.qbic.openbis.openbisclient.OpenBisClient;
-
-import java.awt.Color;
-import java.awt.image.BufferedImage;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Hashtable;
-import java.util.List;
-import java.util.Map;
-
-import javax.imageio.ImageIO;
-import javax.swing.SwingConstants;
-
-import life.qbic.projectbrowser.model.ProjectBean;
-import ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.PropertyType;
-import ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.Sample;
-import ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.SampleType;
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.property.PropertyType;
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.sample.Sample;
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.sample.SampleType;
 
 import com.mxgraph.layout.hierarchical.mxHierarchicalLayout;
 import com.mxgraph.util.mxCellRenderer;
 import com.mxgraph.util.mxConstants;
 import com.mxgraph.view.mxGraph;
 import com.mxgraph.view.mxStylesheet;
-
 import com.vaadin.server.StreamResource;
 import com.vaadin.server.StreamResource.StreamSource;
 
-// public class HelloWorld extends JFrame
+import life.qbic.openbis.openbisclient.OpenBisClient;
+import life.qbic.projectbrowser.model.ProjectBean;
+
+import javax.imageio.ImageIO;
+import javax.swing.*;
+import java.awt.*;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.List;
+import java.util.*;
+
+/**
+ *
+ */
 public class GraphGenerator {
 
   private String url;
@@ -71,15 +68,7 @@ public class GraphGenerator {
   }
 
   public GraphGenerator(ProjectBean projectBean, OpenBisClient openBisClient) throws IOException {
-    // super("openBIS graph");
-
-
-    // Project p = dh.openBisClient.getProjectByCode(project);
-
-    // Project p = dh.openBisClient.getProjectByIdentifier(projectBean);
-    // System.out.println(p);
-
-    mxGraph graph = new mxGraph();
+     mxGraph graph = new mxGraph();
     Object parent = graph.getDefaultParent();
     graph.getModel().beginUpdate();
 
@@ -91,52 +80,24 @@ public class GraphGenerator {
     style.put(mxConstants.STYLE_DIRECTION, "east");
     stylesheet.putCellStyle("ROUNDED", style);
 
-
-    Double width = new Double(120.0);
-    Double height = new Double(40.0);
-
+    double width = 120.0;
+    double height = 40.0;
 
 
     try {
-      // Object found_project = graph.insertVertex(parent, null, p.getIdentifier(), 20, 20, 120,
-      // height,"ROUNDED;strokeColor=#005FAA;fillColor=#005FAA");
-      // Object dummy_node = graph.insertVertex(parent, null, "HALLO", 50,20,120,height, "ROUNDED");
-
       // could be done more efficiently with SearchCriteria (at least I hope so)
-      Map<String, Integer> sample_count = new HashMap<String, Integer>();
-
-
-      // List<Sample> all_project_samples = dh.openBisClient.getSamplesOfProject(p.getCode());
-      // List<Sample> all_project_samples = dh.project_to_samples.get(p.getId());
-
-      // List<SampleBean> all_project_samples = new ArrayList<SampleBean>();
-
-
-      List<Sample> all_project_samples =
-          openBisClient.getSamplesWithParentsAndChildrenOfProjectBySearchService(projectBean
-              .getId());
-
-      /*
-       * for (Iterator i = projectBean.getExperiments().getItemIds().iterator(); i.hasNext();) { //
-       * Get the current item identifier, which is an integer. ExperimentBean exp = (ExperimentBean)
-       * i.next();
-       * 
-       * for (Iterator j = exp.getSamples().getItemIds().iterator(); j.hasNext();) { SampleBean samp
-       * = (SampleBean) j.next();
-       * 
-       * all_project_samples.add(samp); } }
-       */
-
+      Map<String, Integer> sample_count = new HashMap<>();
+      List<Sample> all_project_samples = openBisClient.getSamplesOfProject(projectBean.getId());
 
       // count the different sample types
-      Integer num_measurement_samples = new Integer(0);
+      Integer num_measurement_samples = 0;
 
       List<Sample> samps = new ArrayList<Sample>();
 
       for (Sample s : all_project_samples) {
         // System.out.println(s);
         // String key = s.getSampleTypeCode();
-        String key = s.getSampleTypeCode();
+        String key = s.getType().getCode();
 
         if (sample_count.containsKey(key)) {
 
@@ -216,7 +177,7 @@ public class GraphGenerator {
 
 
         Object mother_node =
-            graph.insertVertex(parent, s.getIdentifier(),
+            graph.insertVertex(parent, s.getIdentifier().toString(),
                 String.format("%s\n%s", s.getCode(), species), 20, 20, width, height,
                 "ROUNDED;strokeColor=#ffffff;fillColor=#0365C0");
         // subtree_vertices.add(mother_node);
@@ -232,7 +193,7 @@ public class GraphGenerator {
 
         for (Sample c : children) {
 
-          if (c.getSampleTypeCode().equals("Q_BIOLOGICAL_SAMPLE")) {
+          if (c.getType().getCode().equals("Q_BIOLOGICAL_SAMPLE")) {
 
             String primaryTissue = "";
             String secondaryName = "";
@@ -241,10 +202,10 @@ public class GraphGenerator {
                 primaryTissue =
                     openBisClient.getCVLabelForProperty(
                         pType,
-                        openBisClient.getSampleByIdentifier(c.getIdentifier()).getProperties()
+                        openBisClient.getSampleByIdentifier(c.getIdentifier().toString()).getProperties()
                             .get("Q_PRIMARY_TISSUE"));
                 String secID =
-                    openBisClient.getSampleByIdentifier(c.getIdentifier()).getProperties()
+                    openBisClient.getSampleByIdentifier(c.getIdentifier().toString()).getProperties()
                         .get("Q_SECONDARY_NAME");
                 if (secID != null) {
                   secondaryName = secID.replace("nan", "");
@@ -253,7 +214,7 @@ public class GraphGenerator {
             }
 
             Object daughter_node =
-                graph.insertVertex(parent, c.getPermId(),
+                graph.insertVertex(parent, c.getPermId().toString(),
                     String.format("%s\n%s\n%s", c.getCode(), primaryTissue, secondaryName), 20, 20,
                     width + 50, height + 20, "ROUNDED;strokeColor=#ffffff;fillColor=#51A7F9");
             graph.insertEdge(parent, null, "", mother_node, daughter_node);
@@ -266,14 +227,14 @@ public class GraphGenerator {
             grandchildren.addAll(c.getChildren());
 
             for (Sample gc : grandchildren) {
-              if (gc.getSampleTypeCode().equals("Q_TEST_SAMPLE")) {
+              if (gc.getType().getCode().equals("Q_TEST_SAMPLE")) {
 
                 String testSampleType = "";
                 String testSecID = "";
                 for (PropertyType pType : testSampleProperties) {
                   if (pType.getCode().equals("Q_SAMPLE_TYPE")) {
                     testSampleType =
-                        openBisClient.openBIScodeToString(openBisClient.getCVLabelForProperty(
+                        openBisClient.openbisCodeToString(openBisClient.getCVLabelForProperty(
                             pType, gc.getProperties().get("Q_SAMPLE_TYPE")));
                     testSecID = gc.getProperties().get("Q_SECONDARY_NAME");
                     if (testSecID != null) {
@@ -283,7 +244,7 @@ public class GraphGenerator {
                 }
 
                 Object granddaughter_node =
-                    graph.insertVertex(parent, gc.getPermId(),
+                    graph.insertVertex(parent, gc.getPermId().toString(),
                         String.format("%s\n%s\n%s", gc.getCode(), testSampleType, testSecID), 20,
                         20, width + 50, height + 20,
                         "ROUNDED;strokeColor=#ffffff;fillColor=#70BF41");
@@ -304,9 +265,9 @@ public class GraphGenerator {
                     measuredSecID = measuredSecID.replace("nan", "");
                   }
                   Object grandgranddaughter_node =
-                      graph.insertVertex(parent, ggc.getPermId(),
+                      graph.insertVertex(parent, ggc.getPermId().toString(),
                           String.format("%s\n%s\n%s", ggc.getCode(),
-                              openBisClient.openBIScodeToString(ggc.getSampleTypeCode()),
+                              openBisClient.openbisCodeToString(ggc.getType().getCode()),
                               measuredSecID), 20, 20, width + 50, height + 20,
                           "ROUNDED;strokeColor=#ffffff;fillColor=#F39019");
                   graph.insertEdge(parent, null, "", granddaughter_node, grandgranddaughter_node);
@@ -376,13 +337,6 @@ public class GraphGenerator {
 
   public GraphGenerator(List<Sample> samples, Map<String, SampleType> types,
       OpenBisClient openBisClient, String projectId) throws IOException {
-    // Map<String, SampleType> types = openBisClient.getSampleTypes();
-    // super("openBIS graph");
-
-    // Project p = dh.openBisClient.getProjectByCode(project);
-
-    // Project p = dh.openBisClient.getProjectByIdentifier(projectBean);
-    // System.out.println(p);
 
     mxGraph graph = new mxGraph();
     Object parent = graph.getDefaultParent();
@@ -414,7 +368,7 @@ public class GraphGenerator {
       for (Sample s : samples) {
         // System.out.println(s);
         // String key = s.getSampleTypeCode();
-        String key = s.getSampleTypeCode();
+        String key = s.getType().getCode();
 
         if (sample_count.containsKey(key)) {
 
@@ -469,11 +423,8 @@ public class GraphGenerator {
         }
       }
 
-      List<PropertyType> bioSampleProperties =
-          OpenBisFunctions.listPropertiesForType(types.get("Q_BIOLOGICAL_SAMPLE"));
-      List<PropertyType> testSampleProperties =
-          OpenBisFunctions.listPropertiesForType(types.get("Q_TEST_SAMPLE"));
-
+      List<PropertyType> bioSampleProperties = openBisClient.listPropertiesForType(types.get("Q_BIOLOGICAL_SAMPLE"));
+      List<PropertyType> testSampleProperties = openBisClient.listPropertiesForType(types.get("Q_TEST_SAMPLE"));
 
       for (Sample s : samps) {
         String species =
@@ -492,7 +443,7 @@ public class GraphGenerator {
 
 
         Object mother_node =
-            graph.insertVertex(parent, s.getIdentifier(),
+            graph.insertVertex(parent, s.getIdentifier().toString(),
                 String.format("%s\n%s", s.getCode(), species), 20, 20, width, height,
                 "ROUNDED;strokeColor=#ffffff;fillColor=#0365C0");
         // subtree_vertices.add(mother_node);
@@ -508,14 +459,14 @@ public class GraphGenerator {
 
         for (Sample c : children) {
 
-          if (c.getSampleTypeCode().equals("Q_BIOLOGICAL_SAMPLE")) {
+          if (c.getType().getCode().equals("Q_BIOLOGICAL_SAMPLE")) {
 
             String primaryTissue = "";
             String secondaryName = "";
             for (PropertyType pType : bioSampleProperties) {
               if (pType.getCode().equals("Q_PRIMARY_TISSUE")) {
                 primaryTissue =
-                    OpenBisFunctions.getCVLabelForProperty(pType,
+                    openBisClient.getCVLabelForProperty(pType,
                         c.getProperties().get("Q_PRIMARY_TISSUE"));
               }
             }
@@ -525,7 +476,7 @@ public class GraphGenerator {
               secondaryName = secID.replace("nan", "");
             }
             Object daughter_node =
-                graph.insertVertex(parent, c.getPermId(),
+                graph.insertVertex(parent, c.getPermId().toString(),
                     String.format("%s\n%s\n%s", c.getCode(), primaryTissue, secondaryName), 20, 20,
                     width + 75, height + 20, "ROUNDED;strokeColor=#ffffff;fillColor=#51A7F9");
             graph.insertEdge(parent, null, "", mother_node, daughter_node);
@@ -538,15 +489,15 @@ public class GraphGenerator {
 
             grandchildren.addAll(c.getChildren());
             for (Sample gc : grandchildren) {
-              if (gc.getSampleTypeCode().equals("Q_TEST_SAMPLE")) {
+              if (gc.getType().getCode().equals("Q_TEST_SAMPLE")) {
 
                 String testSampleType = "";
                 String testSecID = "";
                 for (PropertyType pType : testSampleProperties) {
                   if (pType.getCode().equals("Q_SAMPLE_TYPE")) {
                     testSampleType =
-                        OpenBisFunctions.openBIScodeToString(OpenBisFunctions
-                            .getCVLabelForProperty(pType, gc.getProperties().get("Q_SAMPLE_TYPE")));
+                        openBisClient.openbisCodeToString(
+                                openBisClient.getCVLabelForProperty(pType, gc.getProperties().get("Q_SAMPLE_TYPE")));
                   }
                 }
                 testSecID = gc.getProperties().get("Q_SECONDARY_NAME");
@@ -554,7 +505,7 @@ public class GraphGenerator {
                   testSecID = testSecID.replace("nan", "");
                 }
                 Object granddaughter_node =
-                    graph.insertVertex(parent, gc.getPermId(),
+                    graph.insertVertex(parent, gc.getPermId().toString(),
                         String.format("%s\n%s\n%s", gc.getCode(), testSampleType, testSecID), 20,
                         20, width + 75, height + 20,
                         "ROUNDED;strokeColor=#ffffff;fillColor=#70BF41");
@@ -576,9 +527,9 @@ public class GraphGenerator {
                     measuredSecID = openbisSecID.replace("nan", "");
                   }
                   Object grandgranddaughter_node =
-                      graph.insertVertex(parent, ggc.getPermId(), String.format("%s\n%s\n%s",
+                      graph.insertVertex(parent, ggc.getPermId().toString(), String.format("%s\n%s\n%s",
                           ggc.getCode(),
-                          OpenBisFunctions.openBIScodeToString(ggc.getSampleTypeCode()),
+                          openBisClient.openbisCodeToString(ggc.getType().getCode()),
                           measuredSecID), 20, 20, width + 75, height + 20,
                           "ROUNDED;strokeColor=#ffffff;fillColor=#F39019");
                   graph.insertEdge(parent, null, "", granddaughter_node, grandgranddaughter_node);

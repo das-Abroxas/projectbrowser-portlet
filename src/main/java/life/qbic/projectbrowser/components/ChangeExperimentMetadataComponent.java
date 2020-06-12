@@ -23,6 +23,8 @@ import java.util.Map;
 
 import javax.xml.bind.JAXBException;
 
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.vocabulary.Vocabulary;
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.vocabulary.VocabularyTerm;
 import com.vaadin.data.fieldgroup.FieldGroup;
 import com.vaadin.server.Page;
 import com.vaadin.shared.ui.MarginInfo;
@@ -37,9 +39,6 @@ import com.vaadin.ui.Label;
 import com.vaadin.ui.TextField;
 import com.vaadin.ui.VerticalLayout;
 import com.vaadin.ui.themes.ValoTheme;
-
-import ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.ControlledVocabularyPropertyType;
-import ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.VocabularyTerm;
 
 import life.qbic.portal.utils.PortalUtils;
 import life.qbic.projectbrowser.helpers.Utils;
@@ -59,7 +58,7 @@ public class ChangeExperimentMetadataComponent extends CustomComponent {
   private FieldGroup fieldGroup;
   VerticalLayout vert;
   String id;
-  private List<ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.PropertyType> completeProperties;
+  private List<ch.ethz.sis.openbis.generic.asapi.v3.dto.property.PropertyType> completeProperties;
   private Map<String, String> assignedProperties;
 
   public ChangeExperimentMetadataComponent(DataHandler dh, State state, String resourceurl) {
@@ -91,7 +90,7 @@ public class ChangeExperimentMetadataComponent extends CustomComponent {
         .listPropertiesForType(datahandler.getOpenBisClient().getExperimentTypeByString(type));
 
     assignedProperties =
-        datahandler.getOpenBisClient().getExperimentById2(id).get(0).getProperties();
+        datahandler.getOpenBisClient().getExperiment(id).getProperties();
 
     saveButton.addClickListener(new ClickListener() {
       @Override
@@ -163,26 +162,24 @@ public class ChangeExperimentMetadataComponent extends CustomComponent {
   }
 
   private Map<String, PropertyBean> getControlledVocabularies() {
-    Map<String, PropertyBean> controlledVocabularies = new HashMap<String, PropertyBean>();
+    Map<String, PropertyBean> controlledVocabularies = new HashMap<>();
 
-    for (ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.PropertyType p : completeProperties) {
-      if (p instanceof ControlledVocabularyPropertyType) {
+    for (ch.ethz.sis.openbis.generic.asapi.v3.dto.property.PropertyType p : completeProperties) {
 
-        ControlledVocabularyPropertyType controlled_vocab = (ControlledVocabularyPropertyType) p;
-        List<String> terms = new ArrayList<String>();
+      Vocabulary controlled_vocab = datahandler.getOpenBisClient().getVocabulary(p.getVocabulary().getCode());
+      List<String> terms = new ArrayList<>();
 
-        for (VocabularyTerm term : controlled_vocab.getTerms()) {
-          terms.add(term.getCode().toString());
-        }
+      for (VocabularyTerm term : controlled_vocab.getTerms())
+        terms.add(term.getCode());
 
-        PropertyBean newVocab = new PropertyBean();
-        newVocab.setCode(p.getCode());
-        newVocab.setDescription(p.getDescription());
-        newVocab.setLabel(p.getLabel());
-        newVocab.setVocabularyValues(terms);
+      PropertyBean newVocab = new PropertyBean();
+      newVocab.setCode(p.getCode());
+      newVocab.setDescription(p.getDescription());
+      newVocab.setLabel(p.getLabel());
+      newVocab.setVocabularyValues(terms);
 
-        controlledVocabularies.put(p.getCode(), newVocab);
-      }
+      controlledVocabularies.put(p.getCode(), newVocab);
+
     }
     return controlledVocabularies;
   }
@@ -190,12 +187,14 @@ public class ChangeExperimentMetadataComponent extends CustomComponent {
 
   private Map<String, PropertyBean> getProperties() {
     Map<String, PropertyBean> properties = new HashMap<String, PropertyBean>();
-    for (ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.PropertyType p : completeProperties) {
+    for (ch.ethz.sis.openbis.generic.asapi.v3.dto.property.PropertyType p : completeProperties) {
       if (p.getDataType().toString().equals("XML")) {
         continue;
+
       } else if (assignedProperties.keySet().contains(p.getCode())) {
         properties.put(p.getCode(), new PropertyBean(p.getLabel(), p.getCode(), p.getDescription(),
             assignedProperties.get(p.getCode())));
+
       } else {
         properties.put(p.getCode(),
             new PropertyBean(p.getLabel(), p.getCode(), p.getDescription(), ""));

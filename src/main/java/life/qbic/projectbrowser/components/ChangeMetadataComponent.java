@@ -21,6 +21,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.property.PropertyType;
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.vocabulary.Vocabulary;
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.vocabulary.VocabularyTerm;
 import com.vaadin.data.fieldgroup.FieldGroup;
 import com.vaadin.server.Page;
 import com.vaadin.shared.ui.MarginInfo;
@@ -36,10 +39,6 @@ import com.vaadin.ui.Notification;
 import com.vaadin.ui.Notification.Type;
 import com.vaadin.ui.TextField;
 import com.vaadin.ui.VerticalLayout;
-
-import ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.ControlledVocabularyPropertyType;
-import ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.PropertyType;
-import ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.VocabularyTerm;
 
 import life.qbic.portal.utils.PortalUtils;
 import life.qbic.projectbrowser.model.PropertyBean;
@@ -114,27 +113,26 @@ public class ChangeMetadataComponent extends CustomComponent {
         datahandler.getOpenBisClient().getSampleTypeByString(currentBean.getType()));
 
     // Map<String, List<String>> controlledVocabularies = new HashMap<String, List<String>>();
-    Map<String, PropertyBean> controlledVocabularies = new HashMap<String, PropertyBean>();
+    Map<String, PropertyBean> controlledVocabularies = new HashMap<>();
 
     for (PropertyType p : completeProperties) {
-      if (p instanceof ControlledVocabularyPropertyType) {
 
-        ControlledVocabularyPropertyType controlled_vocab = (ControlledVocabularyPropertyType) p;
-        List<String> terms = new ArrayList<String>();
+      Vocabulary controlled_vocab = datahandler.getOpenBisClient().getVocabulary(p.getVocabulary().getCode());
+      List<String> terms = new ArrayList<>();
 
-        for (VocabularyTerm term : controlled_vocab.getTerms()) {
-          terms.add(term.getCode().toString());
-        }
-
-        PropertyBean newVocab = new PropertyBean();
-        newVocab.setCode(p.getCode());
-        newVocab.setDescription(p.getDescription());
-        newVocab.setLabel(p.getLabel());
-        newVocab.setVocabularyValues(terms);
-
-        controlledVocabularies.put(p.getCode(), newVocab);
+      for (VocabularyTerm term : controlled_vocab.getTerms()) {
+        terms.add(term.getCode());
       }
+
+      PropertyBean newVocab = new PropertyBean();
+      newVocab.setCode(p.getCode());
+      newVocab.setDescription(p.getDescription());
+      newVocab.setLabel(p.getLabel());
+      newVocab.setVocabularyValues(terms);
+
+      controlledVocabularies.put(p.getCode(), newVocab);
     }
+
     return controlledVocabularies;
   }
 

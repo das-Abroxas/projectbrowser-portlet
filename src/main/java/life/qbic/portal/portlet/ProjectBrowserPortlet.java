@@ -15,65 +15,59 @@
  *******************************************************************************/
 package life.qbic.portal.portlet;
 
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.project.Project;
+
 import com.vaadin.annotations.Theme;
 import com.vaadin.annotations.Widgetset;
+import com.vaadin.navigator.Navigator;
+import com.vaadin.navigator.View;
+import com.vaadin.server.FontAwesome;
 import com.vaadin.server.VaadinRequest;
-import com.vaadin.ui.Layout;
-import com.vaadin.ui.HorizontalLayout;
+import com.vaadin.server.VaadinService;
+import com.vaadin.server.WrappedPortletSession;
+import com.vaadin.ui.*;
+import com.vaadin.ui.Button.ClickEvent;
+import com.vaadin.ui.Button.ClickListener;
+import com.vaadin.ui.themes.ValoTheme;
 
+import life.qbic.openbis.openbisclient.OpenBisClient;
+import life.qbic.portal.utils.ConfigurationManager;
+import life.qbic.portal.utils.ConfigurationManagerFactory;
 import life.qbic.portal.utils.PortalUtils;
+import life.qbic.projectbrowser.controllers.DataHandler;
+import life.qbic.projectbrowser.controllers.MultiscaleController;
+import life.qbic.projectbrowser.controllers.State;
+import life.qbic.projectbrowser.controllers.WorkflowViewController;
+import life.qbic.projectbrowser.model.DBConfig;
+import life.qbic.projectbrowser.model.DBManager;
+import life.qbic.projectbrowser.views.*;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import submitter.Submitter;
+import submitter.WorkflowSubmitterFactory;
+import submitter.WorkflowSubmitterFactory.Type;
+
+import javax.portlet.PortletSession;
+import javax.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.IOException;
 import java.util.AbstractMap;
 import java.util.HashMap;
 import java.util.List;
 
-import javax.portlet.PortletSession;
-import javax.servlet.http.HttpServletResponse;
-
-import com.vaadin.navigator.Navigator;
-import com.vaadin.navigator.View;
-import com.vaadin.server.FontAwesome;
-import com.vaadin.server.VaadinService;
-import com.vaadin.server.WrappedPortletSession;
-import com.vaadin.ui.Alignment;
-import com.vaadin.ui.Button;
-import com.vaadin.ui.Button.ClickEvent;
-import com.vaadin.ui.Button.ClickListener;
-import com.vaadin.ui.GridLayout;
-import com.vaadin.ui.Label;
-import com.vaadin.ui.UI;
-import com.vaadin.ui.VerticalLayout;
-import com.vaadin.ui.Window;
-import com.vaadin.ui.themes.ValoTheme;
-
-import ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.Project;
-import life.qbic.projectbrowser.controllers.*;
-import life.qbic.projectbrowser.views.*;
-import life.qbic.projectbrowser.model.DBConfig;
-import life.qbic.projectbrowser.model.DBManager;
-import life.qbic.openbis.openbisclient.OpenBisClient;
-import life.qbic.portal.utils.ConfigurationManager;
-import life.qbic.portal.utils.ConfigurationManagerFactory;
-import submitter.Submitter;
-import submitter.WorkflowSubmitterFactory;
-import submitter.WorkflowSubmitterFactory.Type;
-
 /**
  * Entry point for portlet projectbrowser-portlet. This class derives from {@link QBiCPortletUI},
  * which is found in the {@code portal-utils-lib} library.
  * 
- * @see https://github.com/qbicsoftware/portal-utils-lib
+ * {@see https://github.com/qbicsoftware/portal-utils-lib}
  */
 
 @Theme("mytheme")
 @SuppressWarnings("serial")
 @Widgetset("life.qbic.portal.portlet.AppWidgetSet")
 public class ProjectBrowserPortlet extends QBiCPortletUI {
-
 
   private OpenBisClient openBisConnection;
   private DataHandler datahandler;
@@ -191,7 +185,7 @@ public class ProjectBrowserPortlet extends QBiCPortletUI {
     try {
       layout = buildMainLayout(datahandler, request, PortalUtils.getNonNullScreenName());
     } catch (Exception e) {
-      if (datahandler.getOpenBisClient().loggedin()) {
+      if (datahandler.getOpenBisClient().loggedIn()) {
         LOG.error("User not known?", e);
         buildUserUnknownError(request);
       } else {
@@ -297,11 +291,10 @@ public class ProjectBrowserPortlet extends QBiCPortletUI {
 
     Boolean includePatientCreation = false;
 
-    List<Project> projects = datahandler.getOpenBisClient().getOpenbisInfoService()
-        .listProjectsOnBehalfOfUser(datahandler.getOpenBisClient().getSessionToken(), user);
+    List<Project> projects = datahandler.getOpenBisClient().listProjectsForUser(user);
     int numberOfProjects = 0;
     for (Project project : projects) {
-      if (project.getSpaceCode().contains("IVAC")) {
+      if (project.getSpace().getCode().contains("IVAC")) {
         includePatientCreation = true;
       }
       numberOfProjects += 1;

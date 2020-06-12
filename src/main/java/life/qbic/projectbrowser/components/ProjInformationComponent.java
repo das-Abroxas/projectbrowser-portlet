@@ -15,27 +15,11 @@
  *******************************************************************************/
 package life.qbic.projectbrowser.components;
 
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.nio.file.Paths;
-import java.text.SimpleDateFormat;
-import java.util.AbstractMap.SimpleEntry;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
-import javax.portlet.PortletSession;
-
-import life.qbic.datamodel.experiments.ExperimentType;
-import life.qbic.portal.portlet.ProjectBrowserPortlet;
-import life.qbic.portal.utils.PortalUtils;
-import org.tepi.filtertable.FilterTreeTable;
-
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.dataset.DataSet;
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.experiment.Experiment;
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.experiment.search.ExperimentSearchCriteria;
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.sample.Sample;
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.sample.search.SampleSearchCriteria;
 import com.vaadin.data.Property.ValueChangeEvent;
 import com.vaadin.data.Property.ValueChangeListener;
 import com.vaadin.data.util.BeanItemContainer;
@@ -50,43 +34,37 @@ import com.vaadin.server.Resource;
 import com.vaadin.server.StreamResource;
 import com.vaadin.shared.ui.MarginInfo;
 import com.vaadin.shared.ui.label.ContentMode;
-import com.vaadin.ui.Accordion;
-import com.vaadin.ui.Alignment;
-import com.vaadin.ui.BrowserFrame;
-import com.vaadin.ui.Button;
+import com.vaadin.ui.*;
 import com.vaadin.ui.Button.ClickEvent;
 import com.vaadin.ui.Button.ClickListener;
-import com.vaadin.ui.CheckBox;
-import com.vaadin.ui.CustomComponent;
-import com.vaadin.ui.HorizontalLayout;
-import com.vaadin.ui.Label;
-import com.vaadin.ui.Notification;
-import com.vaadin.ui.Panel;
-import com.vaadin.ui.UI;
-import com.vaadin.ui.VerticalLayout;
-import com.vaadin.ui.Window;
 import com.vaadin.ui.Window.CloseEvent;
 import com.vaadin.ui.Window.CloseListener;
 import com.vaadin.ui.themes.ValoTheme;
 
-import ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.Experiment;
-import ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.Sample;
-import ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.SearchCriteria;
-import ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.SearchCriteria.MatchClause;
-import ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.SearchCriteria.MatchClauseAttribute;
-import ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.SearchSubCriteria;
-
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
-import life.qbic.projectbrowser.controllers.*;
+import life.qbic.datamodel.experiments.ExperimentType;
+import life.qbic.datamodel.sorters.SampleExtIDComparator;
+import life.qbic.portal.portlet.ProjectBrowserPortlet;
+import life.qbic.portal.utils.PortalUtils;
+import life.qbic.projectbrowser.controllers.DataHandler;
+import life.qbic.projectbrowser.controllers.State;
+import life.qbic.projectbrowser.helpers.DatasetViewFilterDecorator;
+import life.qbic.projectbrowser.helpers.DatasetViewFilterGenerator;
+import life.qbic.projectbrowser.helpers.QcMlOpenbisSource;
 import life.qbic.projectbrowser.model.DatasetBean;
 import life.qbic.projectbrowser.model.ProjectBean;
 import life.qbic.projectbrowser.model.TestSampleBean;
-import life.qbic.projectbrowser.helpers.DatasetViewFilterGenerator;
-import life.qbic.projectbrowser.helpers.DatasetViewFilterDecorator;
-import life.qbic.projectbrowser.helpers.QcMlOpenbisSource;
-import life.qbic.projectbrowser.components.EditableLabel;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.tepi.filtertable.FilterTreeTable;
+
+import javax.portlet.PortletSession;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.nio.file.Paths;
+import java.text.SimpleDateFormat;
+import java.util.AbstractMap.SimpleEntry;
+import java.util.*;
 
 public class ProjInformationComponent extends CustomComponent {
 
@@ -266,9 +244,8 @@ public class ProjInformationComponent extends CustomComponent {
     List<String> types = new ArrayList<String>(
         Arrays.asList("Q_BIOLOGICAL_ENTITY", "Q_BIOLOGICAL_SAMPLE", "Q_TEST_SAMPLE"));
     boolean tsvable = false;
-    for (Sample s : datahandler.getOpenBisClient()
-        .getSamplesOfProjectBySearchService("/" + space + "/" + project))
-      if (types.contains(s.getSampleTypeCode())) {
+    for (Sample s : datahandler.getOpenBisClient().getSamplesOfProject("/" + space + "/" + project))
+      if (types.contains(s.getType().getCode())) {
         tsvable = true;
         break;
       }
@@ -303,6 +280,9 @@ public class ProjInformationComponent extends CustomComponent {
 
       String pm = projectBean.getProjectManager();
       projectManager.setValue(pm);
+
+      // ToDo: Set correct contact. Maybe email of Project Manager if available
+      // datahandler.getDatabaseManager().getPersonDetailsForProject(identifier, "manager");
 
       contact.setValue(
           "<a href=\"mailto:support@qbic.zendesk.com?subject=Question%20concerning%20project%20"
@@ -371,43 +351,33 @@ public class ProjInformationComponent extends CustomComponent {
       datasetContainer.addContainerProperty("dl_link", String.class, null);
       datasetContainer.addContainerProperty("CODE", String.class, null);
 
-      // HierarchicalContainer sampleContainer = new HierarchicalContainer()
-
-      List<ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.DataSet> retrievedDatasetsAll = null;
-      List<ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.DataSet> retrievedDatasets =
-          new ArrayList<ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.DataSet>();
-      // List<Sample> retrievedSamples = new ArrayList<Sample>();
-      Map<String, ArrayList<ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.DataSet>> datasetFilter =
-          new HashMap<String, ArrayList<ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.DataSet>>();
-
 
       final String projectIdentifier = currentBean.getId();
-      retrievedDatasetsAll = datahandler.getOpenBisClient()
-          .getDataSetsOfProjectByIdentifierWithSearchCriteria(projectIdentifier);
+      List<DataSet> retrievedDatasetsAll = datahandler.getOpenBisClient().getDataSetsOfProject(projectIdentifier);
+      List<DataSet> retrievedDatasets = new ArrayList<>();
+      Map<String, ArrayList<DataSet>> datasetFilter = new HashMap<>();
 
-      for (ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.DataSet ds : retrievedDatasetsAll) {
 
-        ArrayList<ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.DataSet> values =
-            datasetFilter.get(ds.getSampleIdentifierOrNull());
+      for (DataSet ds : retrievedDatasetsAll) {
+        ArrayList<DataSet> values = datasetFilter.get(ds.getSample().getIdentifier().toString());
 
         if (values == null) {
-          values = new ArrayList<ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.DataSet>();
-          datasetFilter.put(ds.getSampleIdentifierOrNull(), values);
+          values = new ArrayList<>();
+          datasetFilter.put(ds.getSample().getIdentifier().toString(), values);
         }
         values.add(ds);
       }
 
-      List<Sample> allSamples =
-          datahandler.getOpenBisClient().getSamplesOfProjectBySearchService(projectIdentifier);
+      List<Sample> allSamples = datahandler.getOpenBisClient().getSamplesOfProject(projectIdentifier);
 
       for (Sample sample : allSamples) {
-        if (sample.getSampleTypeCode().equals("Q_ATTACHMENT_SAMPLE")) {
+        if (sample.getType().getCode().equals("Q_ATTACHMENT_SAMPLE")) {
 
-          ArrayList<ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.DataSet> foundDataset =
+          ArrayList<DataSet> foundDataset =
               datasetFilter.get(sample.getIdentifier());
 
           if (foundDataset != null) {
-            for (ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.DataSet ds : foundDataset) {
+            for (DataSet ds : foundDataset) {
               if (ds.getProperties().get("Q_ATTACHMENT_TYPE").equals("INFORMATION")) {
                 retrievedDatasets.add(ds);
               }
@@ -416,29 +386,7 @@ public class ProjInformationComponent extends CustomComponent {
         }
       }
 
-      /*
-       * descContent.getTextField().addValueChangeListener(new ValueChangeListener() {
-       * 
-       * @Override public void valueChange(ValueChangeEvent event) { LOG.debug("Event fired");
-       * LOG.debug(descContent.getTextField().getValue().toString()); String newDescriptionValue =
-       * descContent.getTextField().getValue().toString();
-       * 
-       * // Utils.Notification("Project Description Update", // String.format(
-       * "Project description has been changed to '%s'.", newDescriptionValue), // "success");
-       * projectBean.setDescription(newDescriptionValue); HashMap<String, Object> parameters = new
-       * HashMap<String, Object>(); parameters.put("identifier", projectIdentifier);
-       * parameters.put("description", newDescriptionValue); parameters.put("user",
-       * LiferayAndVaadinUtils.getUser().getScreenName());
-       * 
-       * // datahandler.getOpenBisClient().triggerIngestionService("update-project-metadata", //
-       * parameters); }
-       * 
-       * });
-       */
-
       this.datasetTable.setCaption("Project Data");
-      // descriptionLabel = new Label(String.format("This project contains %s result datasets.",
-      // numberOfDatasets), Label.CONTENT_PREFORMATTED);
 
       numberOfDatasets = retrievedDatasets.size();
       this.datasetTable.setPageLength(Math.max(3, Math.min(numberOfDatasets, 10)));
@@ -452,12 +400,14 @@ public class ProjInformationComponent extends CustomComponent {
         // .getCurrent());
       } else {
 
-        Map<String, String> samples = new HashMap<String, String>();
+        Map<String, String> samples = new HashMap<>();
 
         // project same for all datasets
-        String projectCode = retrievedDatasets.get(0).getExperimentIdentifier().split("/")[2];
-        for (ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.DataSet dataset : retrievedDatasets) {
-          samples.put(dataset.getCode(), dataset.getSampleIdentifierOrNull().split("/")[2]);
+        String projectCode =
+                retrievedDatasets.get(0).getExperiment().getIdentifier().toString().split("/")[2];
+
+        for (DataSet dataset : retrievedDatasets) {
+          samples.put(dataset.getCode(), dataset.getSample().getIdentifier().toString().split("/")[2]);
         }
 
         List<DatasetBean> dsBeans = datahandler.queryDatasetsForFolderStructure(retrievedDatasets);
@@ -523,33 +473,40 @@ public class ProjInformationComponent extends CustomComponent {
 
     projDescriptionContent.addComponent(descHorz);
     projDescriptionContent.addComponent(peopleInCharge);
-    // descContent.setWidth("80%");
     projDescriptionContent.addComponent(descriptionPanel);
     projDescriptionContent.addComponent(statusPanel);
-    // longDescription.setWidth("80%");
-    // projDescriptionContent.addComponent(experimentLabel);
-    // projDescriptionContent.addComponent(statusContent);
 
-    // statusContent.setSpacing(true);
-    // statusContent.setMargin(new MarginInfo(false, false, false, true));
 
     if (projectType.equals("patient")) {
       String patientInfo = "";
       Boolean available = false;
 
+/*
       SearchCriteria sampleSc = new SearchCriteria();
+      SearchCriteria projectSc = new SearchCriteria();
+      SearchCriteria experimentSc = new SearchCriteria();
+
       sampleSc.addMatchClause(
           MatchClause.createAttributeMatch(MatchClauseAttribute.TYPE, "Q_BIOLOGICAL_ENTITY"));
-      SearchCriteria projectSc = new SearchCriteria();
+
       projectSc.addMatchClause(
           MatchClause.createAttributeMatch(MatchClauseAttribute.PROJECT, projectBean.getCode()));
       sampleSc.addSubCriteria(SearchSubCriteria.createExperimentCriteria(projectSc));
 
-      SearchCriteria experimentSc = new SearchCriteria();
       experimentSc.addMatchClause(MatchClause.createAttributeMatch(MatchClauseAttribute.TYPE,
           ExperimentType.Q_EXPERIMENTAL_DESIGN.name()));
       sampleSc.addSubCriteria(SearchSubCriteria.createExperimentCriteria(experimentSc));
+
       List<Sample> samples = datahandler.getOpenBisClient().getFacade().searchForSamples(sampleSc);
+*/
+
+      SampleSearchCriteria ssc = new SampleSearchCriteria();
+      ssc.withType().withCode().thatEquals("Q_BIOLOGICAL_ENTITY");
+      ssc.withProject().withCode().thatEquals(projectBean.getCode());
+      ssc.withExperiment().withType().withCode().thatEquals(ExperimentType.Q_EXPERIMENTAL_DESIGN.name());
+
+      List<Sample> samples = datahandler.getOpenBisClient().getSamples(ssc);
+
       for (Sample sample : samples) {
         if (sample.getProperties().get("Q_ADDITIONAL_INFO") != null) {
           available = true;
@@ -694,8 +651,9 @@ public class ProjInformationComponent extends CustomComponent {
         // Nothing selected or more than one selected.
         Set<Object> selectedValues = (Set<Object>) event.getProperty().getValue();
         State state = (State) UI.getCurrent().getSession().getAttribute("state");
-        ArrayList<String> message = new ArrayList<String>();
+        ArrayList<String> message = new ArrayList<>();
         message.add("DataSetView");
+
         if (selectedValues != null && selectedValues.size() == 1) {
           Iterator<Object> iterator = selectedValues.iterator();
           Object next = iterator.next();
@@ -705,14 +663,13 @@ public class ProjInformationComponent extends CustomComponent {
           String project =
               (String) datasetTable.getItem(next).getItemProperty("Project").getValue();
 
-          String space = datahandler.getOpenBisClient().getProjectByCode(project).getSpaceCode();// .getIdentifier().split("/")[1];
+          String space = datahandler.getOpenBisClient().getProject(project).getSpace().getCode();// .getIdentifier().split("/")[1];
           message.add(project);
           message.add((String) datasetTable.getItem(next).getItemProperty("Sample").getValue());
-          // message.add((String) table.getItem(next).getItemProperty("Sample Type").getValue());
           message.add((String) datasetTable.getItem(next).getItemProperty("dl_link").getValue());
           message.add((String) datasetTable.getItem(next).getItemProperty("File Name").getValue());
           message.add(space);
-          // state.notifyObservers(message);
+
         } else {
           message.add("null");
         } // TODO
@@ -825,10 +782,7 @@ public class ProjInformationComponent extends CustomComponent {
     filterTable.setImmediate(true);
     filterTable.setMultiSelect(true);
 
-    // filterTable.setRowHeaderMode(RowHeaderMode.INDEX);
-
     filterTable.setColumnCollapsingAllowed(true);
-
     filterTable.setColumnReorderingAllowed(true);
 
     if (this.datasets != null) {
@@ -855,13 +809,13 @@ public class ProjInformationComponent extends CustomComponent {
       dataset_container.getContainerProperty(new_ds, "Project").setValue(project);
       dataset_container.getContainerProperty(new_ds, "Sample").setValue(sample);
       String secName = d.getProperties().get("Q_SECONDARY_NAME");
+
       // TODO add User here
       if (secName != null) {
         dataset_container.getContainerProperty(new_ds, "Description")
             .setValue(d.getProperties().get("Q_SECONDARY_NAME"));
       }
-      // dataset_container.getContainerProperty(new_ds, "Sample Type").setValue(
-      // d.getSample().getType());
+
       dataset_container.getContainerProperty(new_ds, "File Name").setValue(d.getName());
       dataset_container.getContainerProperty(new_ds, "File Type").setValue("Folder");
       dataset_container.getContainerProperty(new_ds, "Dataset Type").setValue(d.getType());
@@ -889,12 +843,13 @@ public class ProjInformationComponent extends CustomComponent {
       dataset_container.getContainerProperty(new_file, "Project").setValue(project);
       dataset_container.getContainerProperty(new_file, "Sample").setValue(sample);
       String secName = d.getProperties().get("Q_SECONDARY_NAME");
+
       // TODO add User here too
       if (secName != null) {
         dataset_container.getContainerProperty(new_file, "Description")
             .setValue(d.getProperties().get("Q_SECONDARY_NAME"));
       }
-      // dataset_container.getContainerProperty(new_file, "Sample Type").setValue(sampleType);
+
       dataset_container.getContainerProperty(new_file, "File Name").setValue(d.getFileName());
       dataset_container.getContainerProperty(new_file, "File Type").setValue(d.getFileType());
       dataset_container.getContainerProperty(new_file, "Dataset Type").setValue(d.getType());
@@ -936,13 +891,6 @@ public class ProjInformationComponent extends CustomComponent {
               PortletSession.APPLICATION_SCOPE);
 
       boolean itemSelected = (Boolean) event.getProperty().getValue();
-      /*
-       * String fileName = ""; Object parentId = table.getParent(itemId); //In order to prevent
-       * infinity loop int folderDepth = 0; while(parentId != null && folderDepth < 100){ fileName =
-       * Paths.get((String) table.getItem(parentId).getItemProperty("File Name").getValue(),
-       * fileName).toString(); parentId = table.getParent(parentId); folderDepth++; }
-       */
-
       valueChange(itemId, itemSelected, entries, itemFolderName);
       portletSession.setAttribute("qbic_download", entries, PortletSession.APPLICATION_SCOPE);
 
@@ -1026,47 +974,68 @@ public class ProjInformationComponent extends CustomComponent {
   void updateHLALayout() {
 
     String labelContent = "<head> <title></title> </head> <body> ";
-
     Boolean available = false;
 
+/*
     SearchCriteria sc = new SearchCriteria();
-    sc.addMatchClause(MatchClause.createAttributeMatch(MatchClauseAttribute.TYPE,
-        ExperimentType.Q_NGS_HLATYPING.name()));
     SearchCriteria projectSc = new SearchCriteria();
+    SearchCriteria experimentSc = new SearchCriteria();
+
+    sc.addMatchClause(
+            MatchClause.createAttributeMatch(
+                    MatchClauseAttribute.TYPE, ExperimentType.Q_NGS_HLATYPING.name()));
+
     projectSc.addMatchClause(
         MatchClause.createAttributeMatch(MatchClauseAttribute.PROJECT, projectBean.getCode()));
     sc.addSubCriteria(SearchSubCriteria.createExperimentCriteria(projectSc));
 
-    SearchCriteria experimentSc = new SearchCriteria();
     experimentSc.addMatchClause(MatchClause.createAttributeMatch(MatchClauseAttribute.TYPE,
         ExperimentType.Q_NGS_HLATYPING.name()));
     sc.addSubCriteria(SearchSubCriteria.createExperimentCriteria(experimentSc));
 
-
     List<Sample> samples = datahandler.getOpenBisClient().getFacade().searchForSamples(sc);
 
+
     SearchCriteria sc2 = new SearchCriteria();
-    sc2.addMatchClause(MatchClause.createAttributeMatch(MatchClauseAttribute.TYPE,
-        ExperimentType.Q_WF_NGS_HLATYPING.name()));
     SearchCriteria projectSc2 = new SearchCriteria();
+    SearchCriteria experimentSc2 = new SearchCriteria();
+
+    sc2.addMatchClause(
+            MatchClause.createAttributeMatch(
+            MatchClauseAttribute.TYPE, ExperimentType.Q_WF_NGS_HLATYPING.name()));
+
     projectSc2.addMatchClause(
-        MatchClause.createAttributeMatch(MatchClauseAttribute.PROJECT, projectBean.getCode()));
+            MatchClause.createAttributeMatch(
+                    MatchClauseAttribute.PROJECT, projectBean.getCode()));
     sc2.addSubCriteria(SearchSubCriteria.createExperimentCriteria(projectSc2));
 
-    SearchCriteria experimentSc2 = new SearchCriteria();
-    experimentSc2.addMatchClause(MatchClause.createAttributeMatch(MatchClauseAttribute.TYPE,
-        ExperimentType.Q_WF_NGS_HLATYPING.name()));
+    experimentSc2.addMatchClause(
+            MatchClause.createAttributeMatch(
+                    MatchClauseAttribute.TYPE, ExperimentType.Q_WF_NGS_HLATYPING.name()));
     sc2.addSubCriteria(SearchSubCriteria.createExperimentCriteria(experimentSc2));
 
     List<Experiment> wfExperiments =
         datahandler.getOpenBisClient().getFacade().searchForExperiments(sc2);
+*/
 
-    List<Sample> wfSamples = new ArrayList<Sample>();
+    SampleSearchCriteria ssc = new SampleSearchCriteria();
+    ssc.withType().withCode().thatEquals(ExperimentType.Q_NGS_HLATYPING.name());
+    ssc.withProject().withCode().thatEquals(projectBean.getCode());
+    ssc.withExperiment().withType().withCode().thatEquals(ExperimentType.Q_NGS_HLATYPING.name());
+
+    ExperimentSearchCriteria esc = new ExperimentSearchCriteria();
+    esc.withType().withCode().thatEquals(ExperimentType.Q_WF_NGS_HLATYPING.name());
+    esc.withProject().withCode().thatEquals(projectBean.getCode());
+
+    List<Sample> samples = datahandler.getOpenBisClient().getSamples(ssc);
+    List<Sample> wfSamples = new ArrayList<>();
+    List<Experiment> wfExperiments = datahandler.getOpenBisClient().getExperiments(esc);
 
     for (Experiment exp : wfExperiments) {
+      // Note: Should be exp.getIdentifier().toString() since getCode() never contains project code
       if (exp.getCode().contains(projectBean.getCode())) {
         wfSamples
-            .addAll(datahandler.getOpenBisClient().getSamplesofExperiment(exp.getIdentifier()));
+            .addAll(datahandler.getOpenBisClient().getSamplesOfExperiment(exp.getIdentifier().toString()));
       }
     }
 

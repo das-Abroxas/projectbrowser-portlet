@@ -373,8 +373,8 @@ public class MaxQuantComponent extends CustomComponent {
   }
 
   /**
-   * creates a json object of this component. Be sure to be up to date. Otherwise, you might not get
-   * all actual groups. To be up to date execute {@link MaxQuantComponent.updateGroups}
+   * Creates a json object of this component. Be sure to be up to date. Otherwise, you might not get
+   * all actual groups. To be up to date execute {@link #updateGroups() updateGroups}
    * 
    * @return
    * @throws JSONException

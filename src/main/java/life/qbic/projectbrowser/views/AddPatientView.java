@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.project.Project;
 import com.vaadin.data.Property.ValueChangeEvent;
 import com.vaadin.data.Property.ValueChangeListener;
 import com.vaadin.data.util.BeanItem;
@@ -49,8 +50,6 @@ import com.vaadin.ui.TextArea;
 import com.vaadin.ui.TextField;
 import com.vaadin.ui.VerticalLayout;
 import com.vaadin.ui.themes.ValoTheme;
-
-import ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.Project;
 
 import life.qbic.portal.utils.PortalUtils;
 import life.qbic.projectbrowser.helpers.Utils;
@@ -266,40 +265,19 @@ public class AddPatientView extends VerticalLayout implements View {
    */
   void initExperimentalSetupLayout() {
     expSetup.removeAllComponents();
-
     expSetup.setWidth("100%");
-
     expSetup.setSpacing(true);
     expSetup.setMargin(new MarginInfo(true, false, false, false));
 
     Set<String> visibleSpaces = new LinkedHashSet<>();
 
-    /*
-     * for (String space: datahandler.getOpenBisClient().listSpaces()) {
-     * if(space.startsWith("IVAC")) {
-     * 
-     * Set<String> users = datahandler.getOpenBisClient().getSpaceMembers(space);
-     * 
-     * if(users.contains(LiferayAndVaadinUtils.getUser().getScreenName())) {
-     * visibleSpaces.add(space); } } }
-     */
+    for (Project project : datahandler.getOpenBisClient().
+            listProjectsForUser(PortalUtils.getNonNullScreenName())) {
 
-    for (Project project : datahandler.getOpenBisClient().getOpenbisInfoService()
-        .listProjectsOnBehalfOfUser(datahandler.getOpenBisClient().getSessionToken(),
-            PortalUtils.getNonNullScreenName())) {
-
-      if (project.getIdentifier().contains("IVAC")) {
-        visibleSpaces.add(project.getSpaceCode());
+      if (project.getIdentifier().toString().contains("IVAC")) {
+        visibleSpaces.add(project.getSpace().getCode());
       }
     }
-
-    // for (Project project :
-    // datahandler.getOpenBisClient().getOpenbisInfoService().listProjectsOnBehalfOfUser(datahandler.getOpenBisClient().getSessionToken(),
-    // LiferayAndVaadinUtils.getUser().getScreenName())) {
-    // if (project.getSpaceCode().startsWith("IVAC")) {
-    // visibleSpaces.add(project.getSpaceCode());
-    // }
-    // }
 
     projects = new CustomVisibilityComponent(new ComboBox("Select Project", visibleSpaces));
     ((ComboBox) projects.getInnerComponent()).setImmediate(true);

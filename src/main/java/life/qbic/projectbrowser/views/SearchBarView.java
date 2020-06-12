@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.sample.Sample;
 import com.vaadin.data.validator.NullValidator;
 import com.vaadin.event.ShortcutAction.KeyCode;
 import com.vaadin.server.FontAwesome;
@@ -35,12 +36,6 @@ import com.vaadin.ui.Panel;
 import com.vaadin.ui.TextField;
 import com.vaadin.ui.UI;
 import com.vaadin.ui.themes.ValoTheme;
-
-import ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.Sample;
-import ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.SampleFetchOption;
-import ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.SearchCriteria;
-import ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.SearchCriteria.MatchClause;
-import ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.SearchCriteria.MatchClauseAttribute;
 
 import life.qbic.portal.utils.PortalUtils;
 import life.qbic.projectbrowser.controllers.*;
@@ -119,7 +114,7 @@ public class SearchBarView extends CustomComponent {
             try {
               Sample foundSample =
                   datahandler.getOpenBisClient().getSampleByIdentifier(matcher.group(0).toString());
-              String identifier = foundSample.getIdentifier();
+              String identifier = foundSample.getIdentifier().toString();
 
               State state = (State) UI.getCurrent().getSession().getAttribute("state");
               ArrayList<String> message = new ArrayList<String>();
@@ -136,7 +131,7 @@ public class SearchBarView extends CustomComponent {
             try {
               Sample foundSample = datahandler.getOpenBisClient()
                   .getSampleByIdentifier(matcher2.group(0).toString());
-              String identifier = foundSample.getIdentifier();
+              String identifier = foundSample.getIdentifier().toString();
 
               State state = (State) UI.getCurrent().getSession().getAttribute("state");
               ArrayList<String> message = new ArrayList<String>();
@@ -168,20 +163,5 @@ public class SearchBarView extends CustomComponent {
     // mainlayout.setComponentAlignment(searchbar, Alignment.MIDDLE_RIGHT);
     // mainlayout.setWidth(100, Unit.PERCENTAGE);
     setCompositionRoot(mainlayout);
-  }
-
-  public List<String> getSearchResults(String samplecode) {
-    EnumSet<SampleFetchOption> fetchOptions = EnumSet.of(SampleFetchOption.PROPERTIES);
-    SearchCriteria sc = new SearchCriteria();
-    sc.addMatchClause(
-        MatchClause.createAttributeMatch(MatchClauseAttribute.CODE, samplecode + "*"));
-    List<Sample> samples = datahandler.getOpenBisClient().getOpenbisInfoService()
-        .searchForSamplesOnBehalfOfUser(datahandler.getOpenBisClient().getSessionToken(), sc,
-            fetchOptions, PortalUtils.getNonNullScreenName());
-    List<String> ret = new ArrayList<String>(samples.size());
-    for (Sample sample : samples) {
-      ret.add(sample.getCode());
-    }
-    return ret;
   }
 }

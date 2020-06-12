@@ -67,45 +67,20 @@ public class DBManager {
     return conn;
   }
 
-  //
-  // public void addProjectForPrincipalInvestigator(int pi_id, String projectCode) {
-  // String sql = "INSERT INTO projects (pi_id, project_code) VALUES(?, ?)";
-  // Connection conn = login();
-  // try (PreparedStatement statement = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS))
-  // {
-  // statement.setInt(1, pi_id);
-  // statement.setString(2, projectCode);
-  // statement.execute();
-  // // ResultSet rs = statement.getGeneratedKeys();
-  // // if (rs.next()) {
-  // // rs.getInt(1);
-  // // }
-  // // nothing will be in the database, until you commit it!
-  // conn.commit();
-  // } catch (SQLException e) {
-  // e.printStackTrace();
-  // }
-  // logout(conn);
-  // }
-
   public String getInvestigatorForProject(String projectIdentifier) {
     String details = getPersonDetailsForProject(projectIdentifier, "PI");
     return details.split("<br>")[0].trim().replace("<p>", "");
   }
 
-  // TODO
-  // should contain name, role for this project and some information for every person
-  // public List<Person> getPersonsForProject(String projectIdentifier) {
-  //
-  // }
-
   public List<Person> getPersonWithAffiliations(Integer personID) {
-    List<Person> res = new ArrayList<Person>();
+    List<Person> res = new ArrayList<>();
     String lnk = "persons_organizations";
     String sql =
-        "SELECT persons.*, organizations.*, " + lnk + ".occupation FROM persons, organizations, "
-            + lnk + " WHERE persons.id = " + Integer.toString(personID) + " AND persons.id = "
-            + lnk + ".person_id and organizations.id = " + lnk + ".organization_id";
+            "SELECT persons.*, organizations.*, " + lnk + ".occupation FROM persons, organizations, " + lnk +
+            " WHERE persons.id = " + personID +
+                    " AND persons.id = " + lnk + ".person_id " +
+                    " AND organizations.id = " + lnk + ".organization_id";
+
     Connection conn = login();
     try (PreparedStatement statement = conn.prepareStatement(sql)) {
       ResultSet rs = statement.executeQuery();
@@ -155,12 +130,15 @@ public class DBManager {
 
   public String getPersonDetailsForProject(String projectIdentifier, String role) {
     String sql =
-        "SELECT projects_persons.*, projects.* FROM projects_persons, projects WHERE projects.openbis_project_identifier = ?"
-            + " AND projects.id = projects_persons.project_id AND projects_persons.project_role = ?";
+            "SELECT projects_persons.*, projects.* " +
+            "FROM projects_persons, projects " +
+            "WHERE projects.openbis_project_identifier = ?" +
+              "AND projects.id = projects_persons.project_id " +
+              "AND projects_persons.project_role = ?";
 
     int id = -1;
 
-    List<Person> personWithAffiliations = new ArrayList<Person>();
+    List<Person> personWithAffiliations = new ArrayList<>();
 
     Connection conn = login();
     try (PreparedStatement statement = conn.prepareStatement(sql)) {
@@ -191,8 +169,8 @@ public class DBManager {
       }
 
       details =
-          String.format("<p>%s %s %s <br> %s <br><br> %s <br> %s</p>", title, p.getFirst(),
-              p.getLast(), institute, p.getPhone(), p.geteMail());
+          String.format("<p>%s %s %s <br> %s <br><br> %s <br> %s</p>",
+                  title, p.getFirst(), p.getLast(), institute, p.getPhone(), p.geteMail());
       // TODO is address important?
     }
 

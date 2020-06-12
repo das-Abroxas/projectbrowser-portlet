@@ -5,12 +5,16 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.sample.Sample;
+import life.qbic.datamodel.samples.SampleType;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import life.qbic.datamodel.samples.ISampleBean;
-import ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.Sample;
 
+/**
+ *
+ */
 public class OpenbisSampleAdapter implements ISampleBean {
   
   private Sample openbisSample;
@@ -25,7 +29,8 @@ public class OpenbisSampleAdapter implements ISampleBean {
   }
   
   public List<ISampleBean> getChildren() {
-    List<ISampleBean> res = new ArrayList<ISampleBean>();
+    List<ISampleBean> res = new ArrayList<>();
+
     for(Sample s : openbisSample.getChildren()) {
       res.add(new OpenbisSampleAdapter(s));
     }
@@ -52,7 +57,8 @@ public class OpenbisSampleAdapter implements ISampleBean {
 
   @Override
   public String getType() {
-    return openbisSample.getSampleTypeCode();
+    return openbisSample.getType().getCode();
+    // return SampleType.valueOf( openbisSample.getType().getCode() );
   }
 
   @Override
@@ -68,12 +74,12 @@ public class OpenbisSampleAdapter implements ISampleBean {
 
   @Override
   public String getSpace() {
-    return openbisSample.getSpaceCode();
+    return openbisSample.getSpace().getCode();
   }
 
   @Override
   public String getExperiment() {
-    String res = openbisSample.getExperimentIdentifierOrNull();
+    String res = openbisSample.getExperiment().getIdentifier().toString();
     if(res!=null) {
       String[] splt = res.split("/");
       res = splt[splt.length-1];

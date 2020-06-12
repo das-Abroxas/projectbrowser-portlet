@@ -15,6 +15,10 @@ import java.util.Set;
 import javax.xml.bind.JAXBElement;
 import javax.xml.bind.JAXBException;
 
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.dataset.DataSet;
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.experiment.Experiment;
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.property.PropertyType;
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.sample.Sample;
 import life.qbic.projectbrowser.model.notes.Note;
 import life.qbic.projectbrowser.model.notes.Notes;
 
@@ -33,10 +37,6 @@ import life.qbic.xml.properties.Property;
 import life.qbic.xml.study.Qexperiment;
 import life.qbic.projectbrowser.helpers.Docx4jHelper;
 
-import ch.systemsx.cisd.openbis.dss.client.api.v1.DataSet;
-import ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.Experiment;
-import ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.PropertyType;
-import ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.Sample;
 import life.qbic.datamodel.identifiers.ExperimentCodeFunctions;
 import life.qbic.openbis.openbisclient.OpenBisClient;
 
@@ -157,12 +157,14 @@ public class SummaryFetcher {
 
   protected void parseExperimentalDesign() {
     String id = ExperimentCodeFunctions.getInfoExperimentID(space, projectCode);
-    List<Experiment> exps = openbis.getExperimentById2(id);
-    if (!exps.isEmpty()) {
+    Experiment experiment = openbis.getExperiment(id);
+
+    if (experiment != null) {
       StudyXMLParser parser = new StudyXMLParser();
+
       try {
         JAXBElement<Qexperiment> design =
-            parser.parseXMLString(exps.get(0).getProperties().get("Q_EXPERIMENTAL_SETUP"));
+                parser.parseXMLString(experiment.getProperties().get("Q_EXPERIMENTAL_SETUP"));
         factorLabels = parser.getFactorLabels(design);
         factorsForLabelsAndSamples = parser.getFactorsForLabelsAndSamples(design);
       } catch (JAXBException e) {
@@ -183,56 +185,55 @@ public class SummaryFetcher {
     res.setMargin(true);
 
     // collect and connect everything (if samples exist)
-    List<Sample> samples =
-        openbis.getSamplesWithParentsAndChildrenOfProjectBySearchService(projectCode);
+    List<Sample> samples = openbis.getSamplesOfProject(projectCode);
+
     if (!projectCode.startsWith("Q") || projectCode.length() != 5) {
       success = false;
       return res;
     }
+
     if (samples.size() == 0) {
       success = false;
       return res;
-    } else {
-      List<Experiment> experiments = openbis.getExperimentsForProject3(projectCode);
-      Experiment first = experiments.get(0);
-      List<DataSet> datasets = openbis.getDataSetsOfProjectByIdentifier(
-          first.getIdentifier().replace("/" + first.getCode(), ""));
 
-      Map<Experiment, List<Sample>> expToSamples = new HashMap<Experiment, List<Sample>>();
-      Map<String, List<DataSet>> sampIDToDS = new HashMap<String, List<DataSet>>();
-      Map<String, List<DataSet>> expIDToDS = new HashMap<String, List<DataSet>>();
-      Map<String, Experiment> expIDToExp = new HashMap<String, Experiment>();
-      Map<String, List<PropertyType>> expTypeToProperties =
-          new HashMap<String, List<PropertyType>>();
+    } else {
+      List<Experiment> experiments = openbis.getExperimentsOfProjectByCode(projectCode);
+      List<DataSet> datasets       = openbis.getDataSetsOfProject(projectCode);
+
+      Map<String, List<PropertyType>> expTypeToProperties = new HashMap<>();
+      Map<Experiment, List<Sample>> expToSamples = new HashMap<>();
+      Map<String, List<DataSet>> sampIDToDS = new HashMap<>();
+      Map<String, List<DataSet>> expIDToDS = new HashMap<>();
+      Map<String, Experiment> expIDToExp = new HashMap<>();
 
       for (DataSet d : datasets) {
-        String sampID = d.getSampleIdentifierOrNull();
-        String expID = d.getExperimentIdentifier();
+        String sampID = d.getSample().getIdentifier().toString();
+        String expID = d.getExperiment().getIdentifier().toString();
         // fill sample id to datasets
         if (sampIDToDS.containsKey(sampID))
           sampIDToDS.get(sampID).add(d);
         else
-          sampIDToDS.put(sampID, new ArrayList<DataSet>(Arrays.asList(d)));
+          sampIDToDS.put(sampID, new ArrayList<>(Arrays.asList(d)));
         // fill experiment id to datasets
         if (expIDToDS.containsKey(expID))
           expIDToDS.get(expID).add(d);
         else
-          expIDToDS.put(expID, new ArrayList<DataSet>(Arrays.asList(d)));
+          expIDToDS.put(expID, new ArrayList<>(Arrays.asList(d)));
       }
       for (Experiment e : experiments)
-        expIDToExp.put(e.getIdentifier(), e);
+        expIDToExp.put(e.getIdentifier().toString(), e);
       for (Sample s : samples) {
-        Experiment exp = expIDToExp.get(s.getExperimentIdentifierOrNull());
+        Experiment exp = expIDToExp.get(s.getExperiment().getIdentifier().toString());
         if (expToSamples.containsKey(exp))
           expToSamples.get(exp).add(s);
         else
-          expToSamples.put(exp, new ArrayList<Sample>(Arrays.asList(s)));
+          expToSamples.put(exp, new ArrayList<>(Arrays.asList(s)));
       }
       // sort and display information
       Collections.sort(experiments, ExperimentTypeComparator.getInstance());
       for (Experiment e : experiments) {
 
-        String type = e.getExperimentTypeCode();
+        String type = e.getType().getCode();
         if (!expTypeToProperties.containsKey(type))
           expTypeToProperties.put(type,
               openbis.listPropertiesForType(openbis.getExperimentTypeByString(type)));
@@ -292,7 +293,7 @@ public class SummaryFetcher {
   private void generateExperimentHeaderWithMetadata(Experiment e, VerticalLayout section,
       MainDocumentPart mainDocumentPart, Map<String, List<PropertyType>> expTypeToProperties) {
     String expHeadline =
-        expTypeTranslation.get(e.getExperimentTypeCode()) + " (" + e.getCode() + ")";
+        expTypeTranslation.get(e.getType().getCode()) + " (" + e.getCode() + ")";
 
     // docx
     P p1 = docxHelper.createParagraph(expHeadline, true, false, "32");
@@ -306,12 +307,12 @@ public class SummaryFetcher {
     section.addComponent(header);
 
     // all possible properties that can be set for this experiment type
-    List<PropertyType> possibleProps = expTypeToProperties.get(e.getExperimentTypeCode());
+    List<PropertyType> possibleProps = expTypeToProperties.get(e.getType().getCode());
     Map<String, String> properties = e.getProperties();
     // collect ready-to-display key-value pairs
     List<String> metadata = new ArrayList<String>();
 
-    Date date = e.getRegistrationDetails().getRegistrationDate();
+    Date date = e.getRegistrationDate();
     SimpleDateFormat dateFormat = new SimpleDateFormat("dd-MM-yy");
     String formattedDate = dateFormat.format(date);
     metadata.add("Date: " + formattedDate);
@@ -360,7 +361,7 @@ public class SummaryFetcher {
 
   private Table generateSampleTable(List<Sample> samples, Map<String, List<DataSet>> sampIDToDS,
       List<DataSet> expDS, MainDocumentPart mainDocumentPart) {
-    String tableHeadline = prettyNameMapper.getPrettyName(samples.get(0).getSampleTypeCode()) + "s"; // plural
+    String tableHeadline = prettyNameMapper.getPrettyName(samples.get(0).getType().getCode()) + "s"; // plural
     mainDocumentPart.addObject(docxHelper.createParagraph(tableHeadline, false, false, "32"));
 
     Table table = new Table(tableHeadline);
@@ -398,7 +399,7 @@ public class SummaryFetcher {
       // Map<Sample, List<Property>> samplesToFactors = new HashMap<Sample, List<Property>>();
       Sample first = samples.get(0);
       boolean specialSet = false;
-      String sType = first.getSampleTypeCode();
+      String sType = first.getType().getCode();
       // if (mostInformative.getProperties().containsKey("Q_PROPERTIES")) {
       // XMLParser xmlParser = new XMLParser();
       //

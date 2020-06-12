@@ -268,7 +268,7 @@ public class UploadsPanel extends VerticalLayout {
         params.put("space", space);
         params.put("properties", props);
         params.put("user", userID);
-        openbis.ingest("DSS1", "register-exp", params);
+        openbis.triggerIngestionService("register-exp", params);
         int time = TIMEOUT * 1000;
         while (!openbis.expExists(space, project, experiment) && time > 0) {
           time -= step;
@@ -290,7 +290,7 @@ public class UploadsPanel extends VerticalLayout {
       map.put("type", "Q_ATTACHMENT_SAMPLE");
       map.put("metadata", new HashMap<String, Object>());
       params.put(sample, map);
-      openbis.ingest("DSS1", "register-sample-batch", params);
+      openbis.triggerIngestionService("register-sample-batch", params);
       int time = TIMEOUT * 1000;
       while (!openbis.sampleExists(sample) && time > 0) {
         time -= step;

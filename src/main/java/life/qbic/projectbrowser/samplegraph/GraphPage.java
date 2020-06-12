@@ -12,6 +12,8 @@ import java.util.stream.Collectors;
 
 import javax.xml.bind.JAXBException;
 
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.dataset.DataSet;
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.sample.Sample;
 import com.vaadin.data.Property.ValueChangeEvent;
 import com.vaadin.data.Property.ValueChangeListener;
 import com.vaadin.server.FontAwesome;
@@ -25,8 +27,6 @@ import com.vaadin.ui.themes.ValoTheme;
 import com.vaadin.ui.Button.ClickEvent;
 import com.vaadin.ui.Button.ClickListener;
 
-import ch.systemsx.cisd.openbis.dss.client.api.v1.DataSet;
-import ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.Sample;
 import life.qbic.portal.portlet.ProjectBrowserPortlet;
 import life.qbic.portal.utils.PortalUtils;
 import life.qbic.xml.properties.Property;
@@ -49,12 +49,14 @@ public class GraphPage extends VerticalLayout {
   public GraphPage(Map<String, String> taxMap, Map<String, String> tissueMap) {
     setSpacing(true);
     setMargin(true);
+
     Map<String, String> reverseTaxMap = taxMap.entrySet().stream()
         .collect(Collectors.toMap(Map.Entry::getValue, Map.Entry::getKey));
     Map<String, String> reverseTissueMap = tissueMap.entrySet().stream()
         .collect(Collectors.toMap(Map.Entry::getValue, Map.Entry::getKey));
 
-    parser = new ProjectParser(reverseTaxMap, reverseTissueMap);
+    //parser = new ProjectParser(reverseTaxMap, reverseTissueMap);
+    parser = new ProjectParser(taxMap, tissueMap);
   }
 
   private String buildImagePath() {
@@ -93,8 +95,9 @@ public class GraphPage extends VerticalLayout {
   }
 
   public void loadProjectGraph(String projectIdentifier, List<Sample> samples,
-      List<DataSet> datasets, Set<String> factorLabels,
-      Map<Pair<String, String>, Property> factorsForLabelsAndSamples) {
+                               List<DataSet> datasets, Set<String> factorLabels,
+                               Map<Pair<String, String>, Property> factorsForLabelsAndSamples) {
+
     this.factorBox = new ComboBox("Experimental Factor");
     factorBox.setVisible(false);
     addComponent(factorBox);
@@ -102,10 +105,12 @@ public class GraphPage extends VerticalLayout {
     currentSamples = samples;
     if (currentSamples.isEmpty()) {
       LOG.info("No samples to show found in this project.");
+
     } else {
       try {
-        // load here
+        // Load here
         structure = parser.parseSamplesBreadthFirst(currentSamples, datasets, factorLabels, factorsForLabelsAndSamples);
+
         if (!structure.getFactorsToSamples().isEmpty()) {
           factorBox.addItems(structure.getFactorsToSamples().keySet());
           factorBox.setVisible(true);

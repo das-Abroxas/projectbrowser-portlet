@@ -15,6 +15,7 @@
  *******************************************************************************/
 package life.qbic.projectbrowser.model;
 
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.sample.Sample;
 import life.qbic.projectbrowser.helpers.UglyToPrettyNameMapper;
 
 import java.io.Serializable;
@@ -30,7 +31,6 @@ import javax.xml.bind.JAXBException;
 import life.qbic.xml.properties.Property;
 // import life.qbic.xml.manager.XMLParser;
 import life.qbic.xml.properties.Qproperties;
-import ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.Sample;
 
 import com.vaadin.data.util.BeanItemContainer;
 
@@ -200,7 +200,7 @@ public class SampleBean implements Comparable<Object>, Serializable {
     } else {
       for (Sample sample : this.getParents()) {
         parentsBottom += "<li><b>" + sample.getCode() + "</b> ("
-            + prettyNameMapper.getPrettyName(sample.getSampleTypeCode()) + ") </li>";
+            + prettyNameMapper.getPrettyName(sample.getType().getCode()) + ") </li>";
       }
       parentsBottom += "</ul>";
 

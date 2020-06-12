@@ -54,6 +54,7 @@ public class QcMlOpenbisSource implements StreamResource.StreamSource {
       urlConnection.connect();
       InputStream is = urlConnection.getInputStream();
       return is;
+
     } catch (MalformedURLException e) {
       // TODO Auto-generated catch block
       e.printStackTrace();

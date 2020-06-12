@@ -94,20 +94,23 @@ public class TSVDownloadComponent extends VerticalLayout {
     dlPreps.setEnabled(false);
   }
 
-  public void prepareSpreadsheets(final List<String> sampleTypes, String space,
-      final String project, final OpenBisClient openbis, final Set<String> factors,
-      final Map<Pair<String, String>, Property> factorsForLabelsAndSamples) {
-    final TSVDownloadComponent layout = this;
+  public void prepareSpreadsheets(final List<String> sampleTypes,
+                                  String space,
+                                  final String project, final OpenBisClient openbis, final Set<String> factors,
+                                  final Map<Pair<String, String>, Property> factorsForLabelsAndSamples) {
 
+    final TSVDownloadComponent layout = this;
     final Thread t = new Thread(() -> {
-      Map<String, String> tables = new HashMap<String, String>();
+      Map<String, String> tables = new HashMap<>();
+
       for (String type : sampleTypes) {
-        tables.put(type, getTSVString(openbis.getProjectTSV(project, type), factors,
-            factorsForLabelsAndSamples));
+        tables.put(type, getTSVString(openbis.getProjectTSV(project, type), factors, factorsForLabelsAndSamples));
       }
+
       UI.getCurrent().access(new TSVReadyRunnable(layout, tables, project));
       UI.getCurrent().setPollInterval(-1);
     });
+
     t.start();
     UI.getCurrent().setPollInterval(100);
   }

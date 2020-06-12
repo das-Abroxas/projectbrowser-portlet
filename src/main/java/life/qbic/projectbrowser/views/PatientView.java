@@ -25,6 +25,12 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeMap;
 
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.dataset.DataSet;
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.experiment.Experiment;
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.experiment.search.ExperimentSearchCriteria;
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.project.Project;
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.sample.Sample;
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.sample.search.SampleSearchCriteria;
 import life.qbic.portal.utils.PortalUtils;
 import org.tepi.filtertable.FilterTable;
 
@@ -72,14 +78,6 @@ import com.vaadin.ui.renderers.HtmlRenderer;
 import com.vaadin.ui.renderers.ProgressBarRenderer;
 import com.vaadin.ui.themes.ValoTheme;
 
-import ch.systemsx.cisd.openbis.dss.client.api.v1.DataSet;
-import ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.Experiment;
-import ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.Project;
-import ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.Sample;
-import ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.SearchCriteria;
-import ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.SearchCriteria.MatchClause;
-import ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.SearchCriteria.MatchClauseAttribute;
-import ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.SearchSubCriteria;
 import life.qbic.datamodel.experiments.ExperimentType;
 import life.qbic.openbis.openbisclient.OpenBisClient;
 
@@ -395,19 +393,34 @@ public class PatientView extends VerticalLayout implements View {
     String patientInfo = "";
     Boolean available = false;
 
+/*
     SearchCriteria sampleSc = new SearchCriteria();
-    sampleSc.addMatchClause(
-        MatchClause.createAttributeMatch(MatchClauseAttribute.TYPE, "Q_BIOLOGICAL_ENTITY"));
     SearchCriteria projectSc = new SearchCriteria();
-    projectSc.addMatchClause(
-        MatchClause.createAttributeMatch(MatchClauseAttribute.PROJECT, currentBean.getCode()));
-    sampleSc.addSubCriteria(SearchSubCriteria.createExperimentCriteria(projectSc));
-
     SearchCriteria experimentSc = new SearchCriteria();
-    experimentSc.addMatchClause(MatchClause.createAttributeMatch(MatchClauseAttribute.TYPE,
-        ExperimentType.Q_EXPERIMENTAL_DESIGN.name()));
+
+    sampleSc.addMatchClause(
+            MatchClause.createAttributeMatch(
+                    MatchClauseAttribute.TYPE, "Q_BIOLOGICAL_ENTITY"));
+    projectSc.addMatchClause(
+            MatchClause.createAttributeMatch(
+                    MatchClauseAttribute.PROJECT, currentBean.getCode()));
+    experimentSc.addMatchClause(
+            MatchClause.createAttributeMatch(
+                    MatchClauseAttribute.TYPE, ExperimentType.Q_EXPERIMENTAL_DESIGN.name()));
+
+    sampleSc.addSubCriteria(SearchSubCriteria.createExperimentCriteria(projectSc));
     sampleSc.addSubCriteria(SearchSubCriteria.createExperimentCriteria(experimentSc));
+
     List<Sample> samples = datahandler.getOpenBisClient().getFacade().searchForSamples(sampleSc);
+*/
+
+    SampleSearchCriteria ssc = new SampleSearchCriteria();
+    ssc.withType().withCode().thatEquals("Q_BIOLOGICAL_ENTITY");
+    ssc.withProject().withCode().thatEquals(currentBean.getCode());
+    ssc.withExperiment().withType().withCode().thatEquals(ExperimentType.Q_EXPERIMENTAL_DESIGN.name());
+
+    List<Sample> samples = datahandler.getOpenBisClient().getSamples(ssc);
+
     for (Sample sample : samples) {
       if (sample.getProperties().get("Q_ADDITIONAL_INFO") != null) {
         available = true;
@@ -419,53 +432,28 @@ public class PatientView extends VerticalLayout implements View {
       }
     }
 
-
-    /*
-     * for (Iterator<ExperimentBean> i = currentBean.getExperiments().getItemIds().iterator(); i
-     * .hasNext();) { // Get the current item identifier, which is an integer. ExperimentBean
-     * expBean = i.next();
-     * 
-     * if (expBean.getType().equalsIgnoreCase(model.ExperimentType.Q_EXPERIMENTAL_DESIGN.name())) {
-     * for (Iterator<SampleBean> ii = expBean.getSamples().getItemIds().iterator(); ii.hasNext();) {
-     * SampleBean sampBean = ii.next(); if (sampBean.getType().equals("Q_BIOLOGICAL_ENTITY")) { if
-     * (sampBean.getProperties().get("Q_ADDITIONAL_INFO") != null) { available = true; String[]
-     * splitted = sampBean.getProperties().get("Q_ADDITIONAL_INFO").split(";"); for (String s :
-     * splitted) { String[] splitted2 = s.split(":"); patientInfo += String.format(
-     * "<p><u>%s</u>: %s </p> ", splitted2[0], splitted2[1]);
-     * 
-     * } } } } } }
-     */
     if (available) {
       patientInformation.setValue(patientInfo);
     } else {
       patientInformation.setValue("No patient information provided.");
     }
-
-    // membersSection.removeAllComponents();
-    // membersSection.addComponent(getMembersComponent());
   }
 
 
   VerticalLayout initMemberSection() {
+    VerticalLayout membersContent = new VerticalLayout();
     VerticalLayout projMembers = new VerticalLayout();
-    projMembers.setCaption("Members");
-
-    membersSection = new VerticalLayout();
-    Component membersContent = new VerticalLayout();
-
-    // membersContent.setIcon(FontAwesome.USERS);
-    // membersContent.setCaption("Members");
-    membersSection.addComponent(membersContent);
-    // membersSection.setMargin(new MarginInfo(false, false, false, true));
-    membersSection.setWidth("100%");
-    membersSection.setSpacing(true);
-
-    membersSection.setMargin(new MarginInfo(true, false, true, true));
     projMembers.addComponent(membersSection);
-
+    projMembers.setCaption("Members");
     projMembers.setMargin(new MarginInfo(true, false, true, true));
     projMembers.setWidth("100%");
     projMembers.setSpacing(true);
+
+    membersSection = new VerticalLayout();
+    membersSection.addComponent(membersContent);
+    membersSection.setWidth("100%");
+    membersSection.setSpacing(true);
+    membersSection.setMargin(new MarginInfo(true, false, true, true));
 
     return projMembers;
   }
@@ -489,76 +477,86 @@ public class PatientView extends VerticalLayout implements View {
    * @return
    */
   VerticalLayout initHLALayout() {
-    VerticalLayout hlaTyping = new VerticalLayout();
-    VerticalLayout hlaTypingContent = new VerticalLayout();
-
-    hlaTyping.setCaption("HLA Typing");
-
-    // String desc = currentBean.getDescription();
-    // if (!desc.isEmpty()) {
-    // descContent.setValue(desc);
-    // }
     hlaTypeLabel = new Label("Not available.", ContentMode.HTML);
     hlaTypeLabel.setStyleName("patientview");
 
+    VerticalLayout hlaTypingContent = new VerticalLayout();
     hlaTypingContent.setMargin(new MarginInfo(true, false, true, true));
     hlaTypingContent.setSpacing(true);
-    // hlaTypingContent.setCaption("HLA Typing");
-    // hlaTypingContent.setIcon(FontAwesome.BARCODE);
     hlaTypingContent.addComponent(hlaTypeLabel);
 
+    VerticalLayout hlaTyping = new VerticalLayout();
+    hlaTyping.setCaption("HLA Typing");
     hlaTyping.addComponent(hlaTypingContent);
-
     hlaTyping.setMargin(new MarginInfo(true, false, true, true));
     hlaTyping.setSpacing(true);
     hlaTyping.setWidth("100%");
+
     return hlaTyping;
   }
 
   void updateHLALayout() {
 
     String labelContent = "<head> <title></title> </head> <body> ";
-
     Boolean available = false;
 
+/*
     SearchCriteria sc = new SearchCriteria();
-    sc.addMatchClause(MatchClause.createAttributeMatch(MatchClauseAttribute.TYPE,
-        ExperimentType.Q_NGS_HLATYPING.name()));
     SearchCriteria projectSc = new SearchCriteria();
-    projectSc.addMatchClause(
-        MatchClause.createAttributeMatch(MatchClauseAttribute.PROJECT, currentBean.getCode()));
-    sc.addSubCriteria(SearchSubCriteria.createExperimentCriteria(projectSc));
-
     SearchCriteria experimentSc = new SearchCriteria();
-    experimentSc.addMatchClause(MatchClause.createAttributeMatch(MatchClauseAttribute.TYPE,
-        ExperimentType.Q_NGS_HLATYPING.name()));
+
+    sc.addMatchClause(
+            MatchClause.createAttributeMatch(
+                    MatchClauseAttribute.TYPE, ExperimentType.Q_NGS_HLATYPING.name()));
+    projectSc.addMatchClause(
+            MatchClause.createAttributeMatch(
+                    MatchClauseAttribute.PROJECT, currentBean.getCode()));
+    experimentSc.addMatchClause(
+            MatchClause.createAttributeMatch(
+                    MatchClauseAttribute.TYPE, ExperimentType.Q_NGS_HLATYPING.name()));
+
+    sc.addSubCriteria(SearchSubCriteria.createExperimentCriteria(projectSc));
     sc.addSubCriteria(SearchSubCriteria.createExperimentCriteria(experimentSc));
 
-
-    List<Sample> samples = datahandler.getOpenBisClient().getFacade().searchForSamples(sc);
-
     SearchCriteria sc2 = new SearchCriteria();
-    sc2.addMatchClause(MatchClause.createAttributeMatch(MatchClauseAttribute.TYPE,
-        ExperimentType.Q_WF_NGS_HLATYPING.name()));
     SearchCriteria projectSc2 = new SearchCriteria();
-    projectSc2.addMatchClause(
-        MatchClause.createAttributeMatch(MatchClauseAttribute.PROJECT, currentBean.getCode()));
-    sc2.addSubCriteria(SearchSubCriteria.createExperimentCriteria(projectSc2));
-
     SearchCriteria experimentSc2 = new SearchCriteria();
-    experimentSc2.addMatchClause(MatchClause.createAttributeMatch(MatchClauseAttribute.TYPE,
-        ExperimentType.Q_WF_NGS_HLATYPING.name()));
+
+    sc2.addMatchClause(
+            MatchClause.createAttributeMatch(
+                    MatchClauseAttribute.TYPE, ExperimentType.Q_WF_NGS_HLATYPING.name()));
+    projectSc2.addMatchClause(
+            MatchClause.createAttributeMatch(
+                    MatchClauseAttribute.PROJECT, currentBean.getCode()));
+    experimentSc2.addMatchClause(
+            MatchClause.createAttributeMatch(
+                    MatchClauseAttribute.TYPE, ExperimentType.Q_WF_NGS_HLATYPING.name()));
+
+    sc2.addSubCriteria(SearchSubCriteria.createExperimentCriteria(projectSc2));
     sc2.addSubCriteria(SearchSubCriteria.createExperimentCriteria(experimentSc2));
 
-    List<Experiment> wfExperiments =
-        datahandler.getOpenBisClient().getFacade().searchForExperiments(sc2);
+    List<Sample> samples = datahandler.getOpenBisClient().getFacade().searchForSamples(sc);
+    List<Experiment> wfExperiments = datahandler.getOpenBisClient().getFacade().searchForExperiments(sc2);
+*/
 
-    List<Sample> wfSamples = new ArrayList<Sample>();
+    SampleSearchCriteria ssc = new SampleSearchCriteria();
+    ssc.withType().withCode().thatEquals(ExperimentType.Q_NGS_HLATYPING.name());
+    ssc.withProject().withCode().thatEquals(currentBean.getCode());
+    ssc.withExperiment().withType().withCode().thatEquals(ExperimentType.Q_NGS_HLATYPING.name());
+
+    ExperimentSearchCriteria esc = new ExperimentSearchCriteria();
+    esc.withType().withCode().thatEquals(ExperimentType.Q_WF_NGS_HLATYPING.name());
+    esc.withProject().withCode().thatEquals(currentBean.getCode());
+
+    List<Sample> samples = datahandler.getOpenBisClient().getSamples(ssc);
+    List<Experiment> wfExperiments = datahandler.getOpenBisClient().getExperiments(esc);
+
+    List<Sample> wfSamples = new ArrayList<>();
 
     for (Experiment exp : wfExperiments) {
       if (exp.getCode().contains(currentBean.getCode())) {
         wfSamples
-            .addAll(datahandler.getOpenBisClient().getSamplesofExperiment(exp.getIdentifier()));
+            .addAll(datahandler.getOpenBisClient().getSamplesOfExperiment(exp.getIdentifier().toString()));
       }
     }
 
@@ -1124,8 +1122,7 @@ public class PatientView extends VerticalLayout implements View {
 
   void updateContentGraph() {
     String projectID = currentBean.getId();
-    List<Sample> samples = datahandler.getOpenBisClient()
-        .getSamplesWithParentsAndChildrenOfProjectBySearchService(projectID);
+    List<Sample> samples = datahandler.getOpenBisClient().getSamplesOfProject(projectID);
     parseNewGraph(projectID, samples);
     Resource resource = getGraphResource(projectID, samples);
 
@@ -1148,14 +1145,11 @@ public class PatientView extends VerticalLayout implements View {
   }
 
   private void parseNewGraph(String projectID, List<Sample> samples) {
-    List<DataSet> datasets =
-        datahandler.getOpenBisClient().getDataSetsOfProjectByIdentifier(projectID);
+    List<DataSet> datasets = datahandler.getOpenBisClient().getDataSetsOfProject(projectID);
     Set<String> factorLabels = datahandler.getFactorLabels();
     
-    Map<Pair<String, String>, Property> factorsForLabelsAndSamples =
-        datahandler.getFactorsForLabelsAndSamples();
-    newGraphContent.loadProjectGraph(projectID, samples, datasets, factorLabels,
-        factorsForLabelsAndSamples);
+    Map<Pair<String, String>, Property> factorsForLabelsAndSamples = datahandler.getFactorsForLabelsAndSamples();
+    newGraphContent.loadProjectGraph(projectID, samples, datasets, factorLabels, factorsForLabelsAndSamples);
   }
 
   /**
@@ -1181,13 +1175,12 @@ public class PatientView extends VerticalLayout implements View {
   public void enter(ViewChangeEvent event) {
     String currentValue = event.getParameters();
     OpenBisClient oc = datahandler.getOpenBisClient();
-    List<Project> userProjects = oc.getOpenbisInfoService().listProjectsOnBehalfOfUser(
-        oc.getSessionToken(), PortalUtils.getNonNullScreenName());
+    List<Project> userProjects = oc.listProjectsForUser(PortalUtils.getNonNullScreenName());
 
-    List<String> projectIDs = new ArrayList<String>();
+    List<String> projectIDs = new ArrayList<>();
 
     for (Project p : userProjects) {
-      projectIDs.add(p.getIdentifier());
+      projectIDs.add(p.getIdentifier().toString());
     }
 
     if (projectIDs.contains(currentValue)) {

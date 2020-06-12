@@ -18,7 +18,7 @@
 package life.qbic.projectbrowser.model;
 
 /**
- * Helper class to parse datasets/folders/filestructure from quers aggregation service
+ * Helper class to parse datasets/folders/filestructure from queries aggregation service
  * @author Andreas Friedrich
  *
  */

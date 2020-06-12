@@ -20,6 +20,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Set;
 
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.project.Project;
 import life.qbic.portal.portlet.ProjectBrowserPortlet;
 import org.tepi.filtertable.FilterTable;
 
@@ -51,8 +52,6 @@ import com.vaadin.ui.renderers.ButtonRenderer;
 import com.vaadin.ui.renderers.ClickableRenderer.RendererClickEvent;
 import com.vaadin.ui.renderers.ClickableRenderer.RendererClickListener;
 import com.vaadin.ui.themes.ValoTheme;
-
-import ch.systemsx.cisd.openbis.generic.shared.api.v1.dto.Project;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -387,18 +386,20 @@ public class HomeView extends VerticalLayout implements View {
         new BeanItemContainer<ProjectBean>(ProjectBean.class);
 
     LOG.info("Loading projects...");
-    List<Project> projects = datahandler.getOpenBisClient().getOpenbisInfoService()
-        .listProjectsOnBehalfOfUser(datahandler.getOpenBisClient().getSessionToken(), user);
+    List<Project> projects = datahandler.getOpenBisClient().listProjectsForUser(user);
     LOG.info("Loading projects...done.");
 
     for (Project project : projects) {
-      String projectIdentifier = project.getIdentifier();
+      String projectIdentifier = project.getIdentifier().toString();
       String projectCode = project.getCode();
       String desc = project.getDescription();
+
       if (desc == null) {
         desc = "";
+
       } else if (desc.length() > 0) {
         desc = desc.substring(0, Math.min(desc.length(), 100));
+
         if (desc.length() == 100) {
           desc += "...";
         }
@@ -410,7 +411,7 @@ public class HomeView extends VerticalLayout implements View {
         secondaryName = "n/a";
 
       ProjectBean newProjectBean = new ProjectBean(projectIdentifier, projectCode, secondaryName,
-          desc, project.getSpaceCode(), new BeanItemContainer<ExperimentBean>(ExperimentBean.class),
+          desc, project.getSpace().getCode(), new BeanItemContainer<ExperimentBean>(ExperimentBean.class),
           new ProgressBar(), new Date(), "", "", null, false, false, false, "");
 
       // TODO isn't this slow in this fashion? what about SELECT * and creating a map?
