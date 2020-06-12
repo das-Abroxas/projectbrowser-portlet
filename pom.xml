@@ -1,19 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+
 	<modelVersion>4.0.0</modelVersion>
+	<groupId>life.qbic</groupId>
+	<artifactId>projectbrowser-portlet</artifactId>
+	<version>1.11.0</version>
+	<name>ProjectBrowser Portlet</name>
+	<url>http://github.com/das-Abroxas/projectbrowser-portlet</url>
+	<description>Browse and manage biomedical projects</description>
+	<packaging>war</packaging>
+
 	<parent>
 		<groupId>life.qbic</groupId>
 		<artifactId>portlet-parent-pom</artifactId>
 		<version>1.4.0</version>
 	</parent>
-	<groupId>life.qbic</groupId>
-	<artifactId>projectbrowser-portlet</artifactId>
-	<version>1.11.0-SNAPSHOT</version>
-	<name>ProjectBrowser Portlet</name>
-	<url>http://github.com/qbicsoftware/projectbrowser-portlet</url>
-	<description>Browse and manage biomedical projects</description>
-	<packaging>war</packaging>
 
 	<properties>
 		<vaadin.version>7.7.17</vaadin.version>
@@ -69,7 +71,7 @@
 			<version>19.06.4</version>
 		</dependency>
 
-		<!-- Access to our custom databases (portlets use direct JDBC to access 
+		<!-- Access to our custom databases (portlets use direct JDBC to access
 			data for now), but we will create a client library that portlets will use 
 			(version is defined in the parent POM hierarchy (/portal/pom.xml)) -->
 		<dependency>
@@ -166,7 +168,6 @@
 			<version>20180720-1</version>
 		</dependency>
 
-		<!-- this is only needed for the workflow_api guseRemoteAPI -->
 		<!-- https://mvnrepository.com/artifact/org.apache.httpcomponents/httpmime -->
 		<!-- this is only needed for the workflow_api guseRemoteAPI -->
 		<dependency>
