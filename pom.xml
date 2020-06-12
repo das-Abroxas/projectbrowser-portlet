@@ -57,11 +57,11 @@
 			<version>1.2.1</version>
 		</dependency>
 
-		<!-- openBIS client (version defined in parent POM) -->
+		<!-- openBIS client library -->
 		<dependency>
-			<groupId>life.qbic</groupId>
+			<groupId>life.jho</groupId>
 			<artifactId>openbis-client-lib</artifactId>
-			<version>1.1.4</version>
+			<version>19.06.4</version>
 		</dependency>
 
 		<!-- Access to our custom databases (portlets use direct JDBC to access 
