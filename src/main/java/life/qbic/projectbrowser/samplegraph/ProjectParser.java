@@ -5,7 +5,6 @@ import ch.ethz.sis.openbis.generic.asapi.v3.dto.sample.Sample;
 
 import life.qbic.datamodel.samples.ISampleBean;
 import life.qbic.datamodel.samples.SampleSummary;
-import life.qbic.projectbrowser.views.ProjectView;
 import life.qbic.xml.properties.Property;
 import life.qbic.xml.properties.PropertyType;
 
@@ -48,9 +47,11 @@ public class ProjectParser {
   private boolean collectCodesOfDatasetsAttachedToSamples(List<ISampleBean> samples,
       Set<String> nodeCodes, int maxDepth) {
     boolean hasDatasets = false;
+
     if (maxDepth >= 0) {
       for (ISampleBean s : samples) {
         OpenbisSampleAdapter sample;
+
         try {
           sample = (OpenbisSampleAdapter) s;
         } catch (Exception e) {
@@ -106,7 +107,9 @@ public class ProjectParser {
     codesWithDatasets = new HashSet<>();
 
     for (DataSet d : datasets) {
-      String code = d.getSample().getIdentifier().toString().split("/")[2];
+      // String code = d.getSample().getIdentifier().toString().split("/")[2];
+      String code = d.getSample().getCode();
+
       if (sampCodeToDS.containsKey(code)) {
         sampCodeToDS.get(code).add(d);
       } else {
@@ -117,7 +120,7 @@ public class ProjectParser {
     // this.xmlParser = new XMLParser();
     Map<String, List<SampleSummary>> factorsToSamples = new HashMap<>();
 
-    Set<String> knownFactors = new HashSet<String>();
+    Set<String> knownFactors = new HashSet<>();
     knownFactors = factorLabels;
     sampCodeToSamp = new HashMap<>();
     knownFactors.add("None");
@@ -151,18 +154,20 @@ public class ProjectParser {
     while (!samplesBreadthFirst.isEmpty()) {
       Sample s = samplesBreadthFirst.poll();
       String type = s.getType().getCode();
+
       if (validSamples.contains(type) && !visited.contains(s)) {
         visited.add(s);
         List<Sample> children = s.getChildren();
 
         for (String label : knownFactors) {
           // compute new summary
-          Map<Sample, Set<SampleSummary>> sampleToParentNodes =
-              sampleToParentNodesPerLabel.get(label);
+          Map<Sample, Set<SampleSummary>> sampleToParentNodes = sampleToParentNodesPerLabel.get(label);
           Set<SampleSummary> parentSummaries = sampleToParentNodes.get(s);
+
           if (parentSummaries == null) {
-            parentSummaries = new LinkedHashSet<SampleSummary>();
+            parentSummaries = new LinkedHashSet<>();
           }
+
           SampleSummary node =
               createSummary(s, parentSummaries, label, idCounterPerLabel.get(label));
           // check for hashcode and add current sample s if node exists
@@ -185,10 +190,18 @@ public class ProjectParser {
           for (SampleSummary parentSummary : parentSummaries) {
             parentSummary.addChildID(node.getId());
           }
+
           for (Sample c : children) {
+            for (Sample tmp : samples) {
+              if (tmp.getIdentifier().equals(c.getIdentifier())) {
+                c = tmp;
+                break;
+              }
+            }
             samplesBreadthFirst.add(c);
+
             if (!sampleToParentNodes.containsKey(c)) {
-              sampleToParentNodes.put(c, new LinkedHashSet<SampleSummary>());
+              sampleToParentNodes.put(c, new LinkedHashSet<>());
             }
             sampleToParentNodes.get(c).add(node);
             sampleToParentNodesPerLabel.put(label, sampleToParentNodes);
@@ -199,13 +212,10 @@ public class ProjectParser {
     for (String label : nodesForFactorPerLabel.keySet()) {
       Set<SampleSummary> nodes = nodesForFactorPerLabel.get(label);
       addDataSetCount(nodes);
-      factorsToSamples.put(label, new ArrayList<SampleSummary>(nodes));
+      factorsToSamples.put(label, new ArrayList<>(nodes));
     }
     return new StructuredExperiment(factorsToSamples);
   }
-
-  // new "sample to bucket" function, creates new summaries from sample metadata in reference to
-  // parent summaries and experimental factor
 
   /**
    * New "sample to bucket" function. Creates new summaries from
@@ -288,7 +298,6 @@ public class ProjectParser {
 
     boolean leaf = true;
     for (Sample c : s.getChildren()) {
-
       if (validSamples.contains(c.getType().getCode())) {
         leaf = false;
         break;

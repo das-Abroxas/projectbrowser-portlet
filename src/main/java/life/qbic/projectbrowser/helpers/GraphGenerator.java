@@ -42,6 +42,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  *
@@ -68,12 +69,12 @@ public class GraphGenerator {
   }
 
   public GraphGenerator(ProjectBean projectBean, OpenBisClient openBisClient) throws IOException {
-     mxGraph graph = new mxGraph();
+    mxGraph graph = new mxGraph();
     Object parent = graph.getDefaultParent();
     graph.getModel().beginUpdate();
 
     mxStylesheet stylesheet = graph.getStylesheet();
-    Hashtable<String, Object> style = new Hashtable<String, Object>();
+    Hashtable<String, Object> style = new Hashtable<>();
     style.put(mxConstants.STYLE_SHAPE, mxConstants.SHAPE_RECTANGLE);
     style.put(mxConstants.STYLE_OPACITY, 100);
     style.put(mxConstants.STYLE_FONTCOLOR, "#ffffff");
@@ -92,15 +93,12 @@ public class GraphGenerator {
       // count the different sample types
       Integer num_measurement_samples = 0;
 
-      List<Sample> samps = new ArrayList<Sample>();
+      List<Sample> samps = new ArrayList<>();
 
       for (Sample s : all_project_samples) {
-        // System.out.println(s);
-        // String key = s.getSampleTypeCode();
         String key = s.getType().getCode();
 
         if (sample_count.containsKey(key)) {
-
           sample_count.put(key, sample_count.get(key) + 1);
         } else {
           sample_count.put(key, 1);
@@ -147,17 +145,17 @@ public class GraphGenerator {
 
               graph.insertEdge(parent, null, "", dummy_node_level3, dummy_node_level4,
                   "strokeWidth=0;strokeColor=#FFFFFF");
-
             }
           }
         }
       }
 
       List<PropertyType> bioSampleProperties =
-          openBisClient.listPropertiesForType(openBisClient
-              .getSampleTypeByString("Q_BIOLOGICAL_SAMPLE"));
+              openBisClient.listPropertiesForType(
+                  openBisClient.getSampleTypeByString("Q_BIOLOGICAL_SAMPLE"));
       List<PropertyType> testSampleProperties =
-          openBisClient.listPropertiesForType(openBisClient.getSampleTypeByString("Q_TEST_SAMPLE"));
+          openBisClient.listPropertiesForType(
+                  openBisClient.getSampleTypeByString("Q_TEST_SAMPLE"));
 
 
       for (Sample s : samps) {
@@ -180,25 +178,18 @@ public class GraphGenerator {
             graph.insertVertex(parent, s.getIdentifier().toString(),
                 String.format("%s\n%s", s.getCode(), species), 20, 20, width, height,
                 "ROUNDED;strokeColor=#ffffff;fillColor=#0365C0");
-        // subtree_vertices.add(mother_node);
-        List<Sample> children = new ArrayList<Sample>();
 
-        // children.addAll(this.open_client.getFacade().listSamplesOfSample(s.getPermId()));
-        // children.addAll(dh.openBisClient.getFacade().listSamplesOfSample(s.getPermId()));
+        List<Sample> children = new ArrayList<>(s.getChildren());
 
-        children.addAll(s.getChildren());
-
-
-        // Object group_node = graph.insertVertex(parent, null, "Entities", 20, 20, width, height);
 
         for (Sample c : children) {
-
           if (c.getType().getCode().equals("Q_BIOLOGICAL_SAMPLE")) {
-
             String primaryTissue = "";
             String secondaryName = "";
+
             for (PropertyType pType : bioSampleProperties) {
               if (pType.getCode().equals("Q_PRIMARY_TISSUE")) {
+
                 primaryTissue =
                     openBisClient.getCVLabelForProperty(
                         pType,
@@ -207,6 +198,7 @@ public class GraphGenerator {
                 String secID =
                     openBisClient.getSampleByIdentifier(c.getIdentifier().toString()).getProperties()
                         .get("Q_SECONDARY_NAME");
+
                 if (secID != null) {
                   secondaryName = secID.replace("nan", "");
                 }
@@ -218,25 +210,22 @@ public class GraphGenerator {
                     String.format("%s\n%s\n%s", c.getCode(), primaryTissue, secondaryName), 20, 20,
                     width + 50, height + 20, "ROUNDED;strokeColor=#ffffff;fillColor=#51A7F9");
             graph.insertEdge(parent, null, "", mother_node, daughter_node);
-            // graph.groupCells(group_node, 1.0, new Object[] {daughter_node});
 
-            List<Sample> grandchildren = new ArrayList<Sample>();
-
-            // grandchildren.addAll(this.open_client.getFacade().listSamplesOfSample(c.getPermId()));
-            // grandchildren.addAll(openBisClient.getFacade().listSamplesOfSample(c.getPermId()));
-            grandchildren.addAll(c.getChildren());
+            List<Sample> grandchildren = new ArrayList<>(c.getChildren());
 
             for (Sample gc : grandchildren) {
               if (gc.getType().getCode().equals("Q_TEST_SAMPLE")) {
-
                 String testSampleType = "";
                 String testSecID = "";
+
                 for (PropertyType pType : testSampleProperties) {
                   if (pType.getCode().equals("Q_SAMPLE_TYPE")) {
+
                     testSampleType =
-                        openBisClient.openbisCodeToString(openBisClient.getCVLabelForProperty(
-                            pType, gc.getProperties().get("Q_SAMPLE_TYPE")));
+                        openBisClient.openbisCodeToString(
+                                openBisClient.getCVLabelForProperty(pType, gc.getProperties().get("Q_SAMPLE_TYPE")));
                     testSecID = gc.getProperties().get("Q_SECONDARY_NAME");
+
                     if (testSecID != null) {
                       testSecID = testSecID.replace("nan", "");
                     }
@@ -250,20 +239,16 @@ public class GraphGenerator {
                         "ROUNDED;strokeColor=#ffffff;fillColor=#70BF41");
                 graph.insertEdge(parent, null, "", daughter_node, granddaughter_node);
 
-                List<Sample> grandgrandchildren = new ArrayList<Sample>();
-
-                // grandgrandchildren.addAll(this.open_client.getFacade().listSamplesOfSample(gc.getPermId()));
-                // grandgrandchildren.addAll(openBisClient.getFacade().listSamplesOfSample(
-                // gc.getPermId()));
-                grandgrandchildren.addAll(gc.getChildren());
+                List<Sample> grandgrandchildren = new ArrayList<>(gc.getChildren());
 
                 for (Sample ggc : grandgrandchildren) {
-
                   String measuredSecID = "";
                   measuredSecID = gc.getProperties().get("Q_SECONDARY_NAME");
+
                   if (measuredSecID != null) {
                     measuredSecID = measuredSecID.replace("nan", "");
                   }
+
                   Object grandgranddaughter_node =
                       graph.insertVertex(parent, ggc.getPermId().toString(),
                           String.format("%s\n%s\n%s", ggc.getCode(),
@@ -271,7 +256,6 @@ public class GraphGenerator {
                               measuredSecID), 20, 20, width + 50, height + 20,
                           "ROUNDED;strokeColor=#ffffff;fillColor=#F39019");
                   graph.insertEdge(parent, null, "", granddaughter_node, grandgranddaughter_node);
-
                 }
               }
             }
@@ -281,23 +265,12 @@ public class GraphGenerator {
 
       mxHierarchicalLayout layout = new mxHierarchicalLayout(graph, SwingConstants.WEST);
       layout.setDisableEdgeStyle(true);
-      // layout.setInterHierarchySpacing(10);
       layout.setInterRankCellSpacing(100);
-
-
-      // mxIGraphLayout layout = new mxFastOrganicLayout(graph);
-
       layout.execute(graph.getDefaultParent()); // Run the layout on the facade.\n
-
-      // mxGraphComponent graphComponent = new mxGraphComponent(graph);
-      // getContentPane().add(graphComponent);
 
       BufferedImage image =
           mxCellRenderer.createBufferedImage(graph, null, 1, Color.WHITE, true, null);
 
-      // String url = VaadinService.getCurrent().getBaseDirectory().getAbsolutePath() +
-      // "/WEB-INF/images/graph.png";
-      // this.url = url;
       final ByteArrayOutputStream bas = new ByteArrayOutputStream();
 
       if (image != null) {
@@ -314,12 +287,9 @@ public class GraphGenerator {
 
 
   private StreamResource showFile(final String name, final String type,
-      final ByteArrayOutputStream bas) {
+                                  final ByteArrayOutputStream bas) {
     // resource for serving the file contents
     final StreamSource streamSource = new StreamSource() {
-      /**
-			 * 
-			 */
       private static final long serialVersionUID = 6632340984219486654L;
 
       @Override
@@ -336,7 +306,8 @@ public class GraphGenerator {
   }
 
   public GraphGenerator(List<Sample> samples, Map<String, SampleType> types,
-      OpenBisClient openBisClient, String projectId) throws IOException {
+                        OpenBisClient openBisClient, String projectId)
+          throws IOException {
 
     mxGraph graph = new mxGraph();
     Object parent = graph.getDefaultParent();
@@ -357,21 +328,16 @@ public class GraphGenerator {
     try {
 
       // could be done more efficiently with SearchCriteria (at least I hope so)
-      Map<String, Integer> sample_count = new HashMap<String, Integer>();
-
+      Map<String, Integer> sample_count = new HashMap<>();
 
       // count the different sample types
-      Integer num_measurement_samples = new Integer(0);
-
-      List<Sample> samps = new ArrayList<Sample>();
+      Integer num_measurement_samples = 0;
+      List<Sample> samps = new ArrayList<>();
 
       for (Sample s : samples) {
-        // System.out.println(s);
-        // String key = s.getSampleTypeCode();
         String key = s.getType().getCode();
 
         if (sample_count.containsKey(key)) {
-
           sample_count.put(key, sample_count.get(key) + 1);
         } else {
           sample_count.put(key, 1);
@@ -447,18 +413,11 @@ public class GraphGenerator {
                 String.format("%s\n%s", s.getCode(), species), 20, 20, width, height,
                 "ROUNDED;strokeColor=#ffffff;fillColor=#0365C0");
         // subtree_vertices.add(mother_node);
-        List<Sample> children = new ArrayList<Sample>();
-
-        // children.addAll(this.open_client.getFacade().listSamplesOfSample(s.getPermId()));
-        // children.addAll(dh.openBisClient.getFacade().listSamplesOfSample(s.getPermId()));
+        List<Sample> children = new ArrayList<>();
 
         children.addAll(s.getChildren());
 
-
-        // Object group_node = graph.insertVertex(parent, null, "Entities", 20, 20, width, height);
-
         for (Sample c : children) {
-
           if (c.getType().getCode().equals("Q_BIOLOGICAL_SAMPLE")) {
 
             String primaryTissue = "";
@@ -480,14 +439,12 @@ public class GraphGenerator {
                     String.format("%s\n%s\n%s", c.getCode(), primaryTissue, secondaryName), 20, 20,
                     width + 75, height + 20, "ROUNDED;strokeColor=#ffffff;fillColor=#51A7F9");
             graph.insertEdge(parent, null, "", mother_node, daughter_node);
-            // graph.groupCells(group_node, 1.0, new Object[] {daughter_node});
 
-            List<Sample> grandchildren = new ArrayList<Sample>();
+            // List<Sample> grandchildren = new ArrayList<>();
+            List<Sample> grandchildren = openBisClient.getSamples(
+                    c.getChildren().stream().map(Sample::getCode).collect(Collectors.toList()));
+            // grandchildren.addAll(c.getChildren());
 
-            // grandchildren.addAll(this.open_client.getFacade().listSamplesOfSample(c.getPermId()));
-            // grandchildren.addAll(openBisClient.getFacade().listSamplesOfSample(c.getPermId()));
-
-            grandchildren.addAll(c.getChildren());
             for (Sample gc : grandchildren) {
               if (gc.getType().getCode().equals("Q_TEST_SAMPLE")) {
 
@@ -495,6 +452,7 @@ public class GraphGenerator {
                 String testSecID = "";
                 for (PropertyType pType : testSampleProperties) {
                   if (pType.getCode().equals("Q_SAMPLE_TYPE")) {
+
                     testSampleType =
                         openBisClient.openbisCodeToString(
                                 openBisClient.getCVLabelForProperty(pType, gc.getProperties().get("Q_SAMPLE_TYPE")));
@@ -511,13 +469,11 @@ public class GraphGenerator {
                         "ROUNDED;strokeColor=#ffffff;fillColor=#70BF41");
                 graph.insertEdge(parent, null, "", daughter_node, granddaughter_node);
 
-                List<Sample> grandgrandchildren = new ArrayList<Sample>();
+                // List<Sample> grandgrandchildren = new ArrayList<>();
+                // grandgrandchildren.addAll(gc.getChildren());
 
-                // grandgrandchildren.addAll(this.open_client.getFacade().listSamplesOfSample(gc.getPermId()));
-                // grandgrandchildren.addAll(openBisClient.getFacade().listSamplesOfSample(
-                // gc.getPermId()));
-
-                grandgrandchildren.addAll(gc.getChildren());
+                List<Sample> grandgrandchildren = (gc.getChildren() == null) ? new ArrayList<>() :
+                        openBisClient.getSamples(c.getChildren().stream().map(Sample::getCode).collect(Collectors.toList()));
 
                 for (Sample ggc : grandgrandchildren) {
 
@@ -543,23 +499,12 @@ public class GraphGenerator {
 
       mxHierarchicalLayout layout = new mxHierarchicalLayout(graph, SwingConstants.WEST);
       layout.setDisableEdgeStyle(true);
-      // layout.setInterHierarchySpacing(10);
       layout.setInterRankCellSpacing(100);
-
-
-      // mxIGraphLayout layout = new mxFastOrganicLayout(graph);
-
       layout.execute(graph.getDefaultParent()); // Run the layout on the facade.\n
-
-      // mxGraphComponent graphComponent = new mxGraphComponent(graph);
-      // getContentPane().add(graphComponent);
 
       BufferedImage image =
           mxCellRenderer.createBufferedImage(graph, null, 1, Color.WHITE, true, null);
 
-      // String url = VaadinService.getCurrent().getBaseDirectory().getAbsolutePath() +
-      // "/WEB-INF/images/graph.png";
-      // this.url = url;
       final ByteArrayOutputStream bas = new ByteArrayOutputStream();
 
       if (image != null) {
@@ -573,7 +518,4 @@ public class GraphGenerator {
       graph.getModel().endUpdate();
     }
   }
-
-
-
 }
