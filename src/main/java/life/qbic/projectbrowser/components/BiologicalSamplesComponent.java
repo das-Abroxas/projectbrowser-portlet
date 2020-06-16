@@ -15,15 +15,10 @@
  *******************************************************************************/
 package life.qbic.projectbrowser.components;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
 import ch.ethz.sis.openbis.generic.asapi.v3.dto.sample.Sample;
 import ch.ethz.sis.openbis.generic.asapi.v3.dto.vocabulary.Vocabulary;
 import ch.ethz.sis.openbis.generic.asapi.v3.dto.vocabulary.VocabularyTerm;
+
 import com.vaadin.data.Item;
 import com.vaadin.data.util.BeanItem;
 import com.vaadin.data.util.BeanItemContainer;
@@ -38,35 +33,28 @@ import com.vaadin.server.FontAwesome;
 import com.vaadin.server.StreamResource;
 import com.vaadin.shared.ui.MarginInfo;
 import com.vaadin.shared.ui.label.ContentMode;
-import com.vaadin.ui.Button;
-import com.vaadin.ui.CustomComponent;
-import com.vaadin.ui.Grid;
-import com.vaadin.ui.HorizontalLayout;
-import com.vaadin.ui.Label;
-import com.vaadin.ui.TextField;
-import com.vaadin.ui.UI;
-import com.vaadin.ui.VerticalLayout;
-import com.vaadin.ui.Window;
+import com.vaadin.ui.*;
 import com.vaadin.ui.Window.CloseEvent;
 import com.vaadin.ui.Window.CloseListener;
 import com.vaadin.ui.renderers.ButtonRenderer;
-import com.vaadin.ui.renderers.ClickableRenderer.RendererClickEvent;
 import com.vaadin.ui.renderers.ClickableRenderer.RendererClickListener;
 import com.vaadin.ui.renderers.HtmlRenderer;
 
 import life.qbic.portal.portlet.ProjectBrowserPortlet;
-
-import org.apache.commons.lang3.tuple.ImmutablePair;
-import org.apache.commons.lang3.tuple.Pair;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
-import life.qbic.projectbrowser.helpers.*;
-import life.qbic.projectbrowser.controllers.*;
+import life.qbic.projectbrowser.controllers.DataHandler;
+import life.qbic.projectbrowser.controllers.State;
+import life.qbic.projectbrowser.helpers.GridFunctions;
+import life.qbic.projectbrowser.helpers.Utils;
 import life.qbic.projectbrowser.model.BiologicalEntitySampleBean;
 import life.qbic.projectbrowser.model.BiologicalSampleBean;
 import life.qbic.xml.manager.StudyXMLParser;
 import life.qbic.xml.properties.Property;
+
+import org.apache.commons.lang3.tuple.Pair;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
+import java.util.*;
 
 
 public class BiologicalSamplesComponent extends CustomComponent {
@@ -80,26 +68,25 @@ public class BiologicalSamplesComponent extends CustomComponent {
   };
 
   private static final long serialVersionUID = 8672873911284888801L;
-  private VerticalLayout mainLayout;
   private static final Logger LOG = LogManager.getLogger(BiologicalSamplesComponent.class);
-  private Grid sampleBioGrid;
-  private Grid sampleEntityGrid;
-  private ChangeSampleMetadataComponent changeMetadata;
-  private VerticalLayout vert;
-  private DataHandler datahandler;
-  private State state;
-  private String resourceUrl;
-  private int numberOfBioSamples;
-  private int numberOfEntitySamples;
+
   private BeanItemContainer<BiologicalSampleBean> samplesBio;
   private BeanItemContainer<BiologicalEntitySampleBean> samplesEntity;
-  private String currentID;
+
+  private VerticalLayout mainLayout, vert;
+  private Grid sampleBioGrid, sampleEntityGrid;
   private Button exportSources = new Button("Export as TSV");
   private Button exportSamples = new Button("Export as TSV");
   private FileDownloader fileDownloaderSources;
   private FileDownloader fileDownloaderSamples;
 
+  private ChangeSampleMetadataComponent changeMetadata;
+  private DataHandler datahandler;
+  private State state;
+  private String resourceUrl, currentID;
 
+  private int numberOfBioSamples;
+  private int numberOfEntitySamples;
 
   /**
    * 
@@ -108,15 +95,14 @@ public class BiologicalSamplesComponent extends CustomComponent {
    * @param resourceurl
    * @param caption
    */
-  public BiologicalSamplesComponent(DataHandler dh, State state, String resourceurl,
-      String caption) {
+  public BiologicalSamplesComponent(DataHandler dh, State state,
+                                    String resourceurl, String caption) {
     this.datahandler = dh;
     this.resourceUrl = resourceurl;
     this.state = state;
     changeMetadata = new ChangeSampleMetadataComponent(dh, state, resourceurl);
 
     this.setCaption(caption);
-
     this.initUI();
   }
 
@@ -125,11 +111,10 @@ public class BiologicalSamplesComponent extends CustomComponent {
    */
   private void initUI() {
     vert = new VerticalLayout();
-    sampleBioGrid = new Grid();
-    sampleEntityGrid = new Grid();
-
     vert.setMargin(new MarginInfo(false, true, false, false));
 
+    sampleBioGrid = new Grid();
+    sampleEntityGrid = new Grid();
     sampleEntityGrid.addSelectionListener(new SelectionListener() {
 
       @Override
@@ -138,15 +123,14 @@ public class BiologicalSamplesComponent extends CustomComponent {
             samplesEntity.getItem(sampleEntityGrid.getSelectedRow());
 
         if (selectedBean == null) {
-          TextField filterField =
-              (TextField) sampleBioGrid.getHeaderRow(1).getCell("biologicalEntity").getComponent();
+          TextField filterField = (TextField) sampleBioGrid
+                  .getHeaderRow(1).getCell("biologicalEntity").getComponent();
           filterField.setValue("");
+
         } else {
-          TextField filterField =
-              (TextField) sampleBioGrid.getHeaderRow(1).getCell("biologicalEntity").getComponent();
+          TextField filterField = (TextField) sampleBioGrid
+                  .getHeaderRow(1).getCell("biologicalEntity").getComponent();
           filterField.setValue(selectedBean.getBean().getCode());
-          // samplesBio.addContainerFilter("biologicalEntity",
-          // selectedBean.getBean().getSecondaryName(), false, false);
         }
       }
 
@@ -159,7 +143,6 @@ public class BiologicalSamplesComponent extends CustomComponent {
     exportSources.setIcon(FontAwesome.DOWNLOAD);
     exportSamples.setIcon(FontAwesome.DOWNLOAD);
 
-    // this.setWidth(Page.getCurrent().getBrowserWindowWidth() * 0.8f, Unit.PIXELS);
     this.setCompositionRoot(mainLayout);
   }
 
@@ -168,56 +151,44 @@ public class BiologicalSamplesComponent extends CustomComponent {
    * @param id
    */
   public void updateUI(String id) {
-
     currentID = id;
     sampleBioGrid = new Grid();
     sampleEntityGrid = new Grid();
 
-    sampleEntityGrid.addSelectionListener(new SelectionListener() {
+    sampleEntityGrid.addSelectionListener((SelectionListener) event -> {
+      BeanItem<BiologicalEntitySampleBean> selectedBean =
+          samplesEntity.getItem(sampleEntityGrid.getSelectedRow());
 
-      @Override
-      public void select(SelectionEvent event) {
-        BeanItem<BiologicalEntitySampleBean> selectedBean =
-            samplesEntity.getItem(sampleEntityGrid.getSelectedRow());
+      if (selectedBean == null) {
+        TextField filterField = (TextField) sampleBioGrid
+                .getHeaderRow(1).getCell("biologicalEntity").getComponent();
+        filterField.setValue("");
 
-        if (selectedBean == null) {
-          TextField filterField =
-              (TextField) sampleBioGrid.getHeaderRow(1).getCell("biologicalEntity").getComponent();
-          filterField.setValue("");
-        } else {
-          TextField filterField =
-              (TextField) sampleBioGrid.getHeaderRow(1).getCell("biologicalEntity").getComponent();
-          filterField.setValue(selectedBean.getBean().getCode());
-          // samplesBio.addContainerFilter("biologicalEntity",
-          // selectedBean.getBean().getSecondaryName(), false, false);
-        }
+      } else {
+        TextField filterField = (TextField) sampleBioGrid
+                .getHeaderRow(1).getCell("biologicalEntity").getComponent();
+        filterField.setValue(selectedBean.getBean().getCode());
       }
-
     });
 
     if (id == null)
       return;
 
-
     BeanItemContainer<BiologicalSampleBean> samplesBioContainer =
-        new BeanItemContainer<BiologicalSampleBean>(BiologicalSampleBean.class);
+        new BeanItemContainer<>(BiologicalSampleBean.class);
     BeanItemContainer<BiologicalEntitySampleBean> samplesEntityContainer =
-        new BeanItemContainer<BiologicalEntitySampleBean>(BiologicalEntitySampleBean.class);
+        new BeanItemContainer<>(BiologicalEntitySampleBean.class);
 
-    List<Sample> allSamples =
-        datahandler.getOpenBisClient().getSamplesOfProject(id);
+    List<Sample> allSamples = datahandler.getOpenBisClient().getSamplesOfProject(id);
 
-    List<VocabularyTerm> terms = null;
+    List<VocabularyTerm> terms   = null;
     Map<String, String> termsMap = new HashMap<>();
-    
-    StudyXMLParser xmlParser = new StudyXMLParser();
+    StudyXMLParser xmlParser     = new StudyXMLParser();
 
     for (Sample sample : allSamples) {
-
       if (sample.getType().getCode().equals(sampleTypes.Q_BIOLOGICAL_ENTITY.toString())) {
 
         Map<String, String> sampleProperties = sample.getProperties();
-
         BiologicalEntitySampleBean newEntityBean = new BiologicalEntitySampleBean();
         newEntityBean.setCode(sample.getCode());
         newEntityBean.setId(sample.getIdentifier().toString());
@@ -241,16 +212,12 @@ public class BiologicalSamplesComponent extends CustomComponent {
             }
           }
         } else {
-          for (Vocabulary vocab : datahandler.getOpenBisClient().listVocabulary()) {
-            if (vocab.getCode().equals("Q_NCBI_TAXONOMY")) {
-              terms = vocab.getTerms();
-              for (VocabularyTerm term : vocab.getTerms()) {
-                if (term.getCode().equals(organismID)) {
-                  newEntityBean.setOrganismName(term.getLabel());
-                  termsMap.put(organismID, term.getLabel());
-                  break;
-                }
-              }
+
+          Vocabulary vocab = datahandler.getOpenBisClient().getVocabulary("Q_NCBI_TAXONOMY");
+          for (VocabularyTerm term : vocab.getTerms()) {
+            if (term.getCode().equals(organismID)) {
+              newEntityBean.setOrganismName(term.getLabel());
+              termsMap.put(organismID, term.getLabel());
               break;
             }
           }
@@ -260,16 +227,17 @@ public class BiologicalSamplesComponent extends CustomComponent {
         Map<String, List<Property>> propertiesForSamples = datahandler.getPropertiesForSamples();
         Set<String> factorLabels = datahandler.getFactorLabels();
         Map<Pair<String, String>, Property> factorsForSamples =
-            datahandler.getFactorsForLabelsAndSamples();
+                datahandler.getFactorsForLabelsAndSamples();
 
-        List<Property> complexProps = xmlParser.getFactorsAndPropertiesForSampleCode(datahandler.getExperimentalSetup(), sample.getCode());
+        List<Property> complexProps =
+                xmlParser.getFactorsAndPropertiesForSampleCode(datahandler.getExperimentalSetup(), sample.getCode());
         newEntityBean.setProperties(sampleProperties, complexProps);
 
         newEntityBean.setGender(sampleProperties.get("Q_GENDER"));
         samplesEntityContainer.addBean(newEntityBean);
 
-        // for (Sample child : datahandler.getOpenBisClient().getChildrenSamples(sample)) {
         for (Sample realChild : sample.getChildren()) {
+          realChild = datahandler.getOpenBisClient().getSample(realChild.getIdentifier().toString());
           if (realChild.getType().getCode().equals(sampleTypes.Q_BIOLOGICAL_SAMPLE.toString())) {
             // Sample realChild =
             // datahandler.getOpenBisClient().getSampleByIdentifier(child.getIdentifier());
@@ -373,11 +341,11 @@ public class BiologicalSamplesComponent extends CustomComponent {
       @Override
       public void itemClick(ItemClickEvent event) {
 
-        BeanItem selected = (BeanItem) samplesEntity.getItem(event.getItemId());
+        BeanItem selected = samplesEntity.getItem(event.getItemId());
         BiologicalEntitySampleBean selectedExp = (BiologicalEntitySampleBean) selected.getBean();
 
         State state = (State) UI.getCurrent().getSession().getAttribute("state");
-        ArrayList<String> message = new ArrayList<String>();
+        ArrayList<String> message = new ArrayList<>();
         message.add("clicked");
         message.add(selectedExp.getId());
         message.add("sample");
@@ -385,14 +353,67 @@ public class BiologicalSamplesComponent extends CustomComponent {
       }
     });
 
-    sampleEntityGrid.getColumn("edit").setRenderer(new ButtonRenderer(new RendererClickListener() {
+    sampleEntityGrid.getColumn("edit").setRenderer(new ButtonRenderer((RendererClickListener) event -> {
+      BeanItem selected = samplesEntity.getItem(event.getItemId());
+      BiologicalEntitySampleBean selectedSample = (BiologicalEntitySampleBean) selected.getBean();
+
+      Window subWindow = new Window("Edit Metadata");
+
+      changeMetadata.updateUI(selectedSample.getId(), selectedSample.getType());
+      VerticalLayout subContent = new VerticalLayout();
+      subContent.setMargin(true);
+      subContent.addComponent(changeMetadata);
+      subWindow.setContent(subContent);
+      // Center it in the browser window
+      subWindow.center();
+      subWindow.setModal(true);
+      subWindow.setIcon(FontAwesome.PENCIL);
+      subWindow.setHeight("75%");
+
+      subWindow.addCloseListener(new CloseListener() {
+        /**
+         *
+         */
+        private static final long serialVersionUID = -1329152609834711109L;
+
+        @Override
+        public void windowClose(CloseEvent e) {
+          updateUI(currentID);
+        }
+      });
+
+      ProjectBrowserPortlet ui = (ProjectBrowserPortlet) UI.getCurrent();
+      ui.addWindow(subWindow);
+    }));
+    sampleEntityGrid.getColumn("edit").setWidth(70);
+    sampleEntityGrid.getColumn("edit").setHeaderCaption("");
+    sampleEntityGrid.setColumnOrder("edit", "secondaryName", "Organism", "properties", "code",
+            "additionalInfo", "gender", "externalDB");
+
+    sampleBioGrid.addItemClickListener(new ItemClickListener() {
 
       @Override
-      public void click(RendererClickEvent event) {
-        BeanItem selected = (BeanItem) samplesEntity.getItem(event.getItemId());
-        BiologicalEntitySampleBean selectedSample = (BiologicalEntitySampleBean) selected.getBean();
+      public void itemClick(ItemClickEvent event) {
 
-        Window subWindow = new Window("Edit Metadata");
+        BeanItem selected = samplesBio.getItem(event.getItemId());
+        BiologicalSampleBean selectedExp = (BiologicalSampleBean) selected.getBean();
+
+        State state = (State) UI.getCurrent().getSession().getAttribute("state");
+        ArrayList<String> message = new ArrayList<>();
+        message.add("clicked");
+        message.add(selectedExp.getId());
+        message.add("sample");
+        state.notifyObservers(message);
+      }
+    });
+
+    sampleBioGrid.getColumn("edit").setRenderer(new ButtonRenderer((RendererClickListener) event -> {
+      BeanItem selected = samplesBio.getItem(event.getItemId());
+
+      try {
+        BiologicalSampleBean selectedSample = (BiologicalSampleBean) selected.getBean();
+
+        Window subWindow = new Window();
 
         changeMetadata.updateUI(selectedSample.getId(), selectedSample.getType());
         VerticalLayout subContent = new VerticalLayout();
@@ -402,13 +423,12 @@ public class BiologicalSamplesComponent extends CustomComponent {
         // Center it in the browser window
         subWindow.center();
         subWindow.setModal(true);
-        subWindow.setIcon(FontAwesome.PENCIL);
-        subWindow.setHeight("75%");
+        subWindow.setResizable(false);
 
         subWindow.addCloseListener(new CloseListener() {
           /**
-           * 
-           */
+          *
+          */
           private static final long serialVersionUID = -1329152609834711109L;
 
           @Override
@@ -419,70 +439,10 @@ public class BiologicalSamplesComponent extends CustomComponent {
 
         ProjectBrowserPortlet ui = (ProjectBrowserPortlet) UI.getCurrent();
         ui.addWindow(subWindow);
-      }
-    }));
-    sampleEntityGrid.getColumn("edit").setWidth(70);
-    sampleEntityGrid.getColumn("edit").setHeaderCaption("");
-    sampleEntityGrid.setColumnOrder("edit", "secondaryName", "Organism", "properties", "code",
-        "additionalInfo", "gender", "externalDB");
+      } catch (NullPointerException e) {
+        System.err
+            .println("NullPointerException while trying to set metadata: " + e.getMessage());
 
-    sampleBioGrid.addItemClickListener(new ItemClickListener() {
-
-      @Override
-      public void itemClick(ItemClickEvent event) {
-
-        BeanItem selected = (BeanItem) samplesBio.getItem(event.getItemId());
-        BiologicalSampleBean selectedExp = (BiologicalSampleBean) selected.getBean();
-
-        State state = (State) UI.getCurrent().getSession().getAttribute("state");
-        ArrayList<String> message = new ArrayList<String>();
-        message.add("clicked");
-        message.add(selectedExp.getId());
-        message.add("sample");
-        state.notifyObservers(message);
-      }
-    });
-
-    sampleBioGrid.getColumn("edit").setRenderer(new ButtonRenderer(new RendererClickListener() {
-
-      @Override
-      public void click(RendererClickEvent event) {
-        BeanItem selected = (BeanItem) samplesBio.getItem(event.getItemId());
-
-        try {
-          BiologicalSampleBean selectedSample = (BiologicalSampleBean) selected.getBean();
-
-          Window subWindow = new Window();
-
-          changeMetadata.updateUI(selectedSample.getId(), selectedSample.getType());
-          VerticalLayout subContent = new VerticalLayout();
-          subContent.setMargin(true);
-          subContent.addComponent(changeMetadata);
-          subWindow.setContent(subContent);
-          // Center it in the browser window
-          subWindow.center();
-          subWindow.setModal(true);
-          subWindow.setResizable(false);
-
-          subWindow.addCloseListener(new CloseListener() {
-            /**
-            * 
-            */
-            private static final long serialVersionUID = -1329152609834711109L;
-
-            @Override
-            public void windowClose(CloseEvent e) {
-              updateUI(currentID);
-            }
-          });
-
-          ProjectBrowserPortlet ui = (ProjectBrowserPortlet) UI.getCurrent();
-          ui.addWindow(subWindow);
-        } catch (NullPointerException e) {
-          System.err
-              .println("NullPointerException while trying to set metadata: " + e.getMessage());
-
-        }
       }
     }));
 
@@ -536,8 +496,6 @@ public class BiologicalSamplesComponent extends CustomComponent {
     tableSectionContent.setMargin(new MarginInfo(true, false, false, false));
     sampletableSectionContent.setMargin(new MarginInfo(true, false, false, false));
 
-    // tableSectionContent.setCaption("Datasets");
-    // tableSectionContent.setIcon(FontAwesome.FLASK);
     tableSection.addComponent(new Label(String.format(
         "This view shows the sample sources (e.g., human, mouse) to be studied and the corresponding extracted samples. With sample sources, information specific to the subject (e.g., age or BMI in the case of patient data) can be stored. The extracted sample is a sample which has been extracted from the corresponding sample source. This is the raw sample material that can be later prepared for specific analytical methods such as MS or NGS.<br> "
             + "\n\n There are %s extracted  samples coming from %s distinct sample sources in this study.",
@@ -560,12 +518,6 @@ public class BiologicalSamplesComponent extends CustomComponent {
 
     sampleBioGrid.setWidth(100, Unit.PERCENTAGE);
     sampleEntityGrid.setWidth(100, Unit.PERCENTAGE);
-
-    // sampleBioGrid.setHeightMode(HeightMode.ROW);
-    // sampleEntityGrid.setHeightMode(HeightMode.ROW);
-
-    // sampleBioGrid.setHeightByRows(Math.min(10, numberOfBioSamples));
-    // sampleEntityGrid.setHeightByRows(Math.min(10, 5));
 
     tableSection.setSizeFull();
     sampletableSectionContent.setSizeFull();
