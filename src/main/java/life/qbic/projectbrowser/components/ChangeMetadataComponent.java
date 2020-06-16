@@ -112,25 +112,25 @@ public class ChangeMetadataComponent extends CustomComponent {
     List<PropertyType> completeProperties = datahandler.getOpenBisClient().listPropertiesForType(
         datahandler.getOpenBisClient().getSampleTypeByString(currentBean.getType()));
 
-    // Map<String, List<String>> controlledVocabularies = new HashMap<String, List<String>>();
     Map<String, PropertyBean> controlledVocabularies = new HashMap<>();
 
     for (PropertyType p : completeProperties) {
+      if ("CONTROLLEDVOCABULARY".equals( p.getDataType().toString() )) {
+        Vocabulary controlled_vocab = datahandler.getOpenBisClient().getVocabulary(p.getVocabulary().getCode());
+        List<String> terms = new ArrayList<>();
 
-      Vocabulary controlled_vocab = datahandler.getOpenBisClient().getVocabulary(p.getVocabulary().getCode());
-      List<String> terms = new ArrayList<>();
+        for (VocabularyTerm term : controlled_vocab.getTerms()) {
+          terms.add(term.getCode());
+        }
 
-      for (VocabularyTerm term : controlled_vocab.getTerms()) {
-        terms.add(term.getCode());
+        PropertyBean newVocab = new PropertyBean();
+        newVocab.setCode(p.getCode());
+        newVocab.setDescription(p.getDescription());
+        newVocab.setLabel(p.getLabel());
+        newVocab.setVocabularyValues(terms);
+
+        controlledVocabularies.put(p.getCode(), newVocab);
       }
-
-      PropertyBean newVocab = new PropertyBean();
-      newVocab.setCode(p.getCode());
-      newVocab.setDescription(p.getDescription());
-      newVocab.setLabel(p.getLabel());
-      newVocab.setVocabularyValues(terms);
-
-      controlledVocabularies.put(p.getCode(), newVocab);
     }
 
     return controlledVocabularies;

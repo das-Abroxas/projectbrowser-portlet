@@ -236,10 +236,8 @@ public class ChangeSampleMetadataComponent extends CustomComponent {
     Map<String, PropertyBean> controlledVocabularies = new HashMap<>();
 
     for (PropertyType p : completeProperties) {
-
       if ("CONTROLLEDVOCABULARY".equals(p.getDataType().toString())) {
-        Vocabulary controlled_vocab =
-                datahandler.getOpenBisClient().getVocabulary(p.getVocabulary().getCode());
+        Vocabulary controlled_vocab = datahandler.getOpenBisClient().getVocabulary(p.getVocabulary().getCode());
         List<String> terms = new ArrayList<>();
 
         for (VocabularyTerm term : controlled_vocab.getTerms()) {
@@ -254,8 +252,8 @@ public class ChangeSampleMetadataComponent extends CustomComponent {
 
         controlledVocabularies.put(p.getCode(), newVocab);
       }
-
     }
+
     return controlledVocabularies;
   }
 

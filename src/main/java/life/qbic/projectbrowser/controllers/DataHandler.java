@@ -830,8 +830,9 @@ public class DataHandler implements Serializable {
       }
     }
 
-    List<PropertyType> wat = openBisClient.listPropertiesForType(experiment.getType());
-    Map<String, String> typeLabels = wat.stream().collect(Collectors.toMap(PropertyType::getCode, PropertyType::getLabel));
+    List<PropertyType> propertyTypes = openBisClient.listPropertiesForType(
+            openBisClient.getExperimentTypeByString(experiment.getType().getCode()));
+    Map<String, String> typeLabels = propertyTypes.stream().collect(Collectors.toMap(PropertyType::getCode, PropertyType::getLabel));
 
     ebean.setId(experiment.getIdentifier().toString());
     ebean.setCode(experiment.getCode());

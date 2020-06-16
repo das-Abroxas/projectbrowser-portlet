@@ -165,22 +165,23 @@ public class ChangeExperimentMetadataComponent extends CustomComponent {
     Map<String, PropertyBean> controlledVocabularies = new HashMap<>();
 
     for (ch.ethz.sis.openbis.generic.asapi.v3.dto.property.PropertyType p : completeProperties) {
+      if ("CONTROLLEDVOCABULARY".equals(p.getDataType().toString())) {
+        Vocabulary controlled_vocab = datahandler.getOpenBisClient().getVocabulary(p.getVocabulary().getCode());
+        List<String> terms = new ArrayList<>();
 
-      Vocabulary controlled_vocab = datahandler.getOpenBisClient().getVocabulary(p.getVocabulary().getCode());
-      List<String> terms = new ArrayList<>();
+        for (VocabularyTerm term : controlled_vocab.getTerms())
+          terms.add(term.getCode());
 
-      for (VocabularyTerm term : controlled_vocab.getTerms())
-        terms.add(term.getCode());
+        PropertyBean newVocab = new PropertyBean();
+        newVocab.setCode(p.getCode());
+        newVocab.setDescription(p.getDescription());
+        newVocab.setLabel(p.getLabel());
+        newVocab.setVocabularyValues(terms);
 
-      PropertyBean newVocab = new PropertyBean();
-      newVocab.setCode(p.getCode());
-      newVocab.setDescription(p.getDescription());
-      newVocab.setLabel(p.getLabel());
-      newVocab.setVocabularyValues(terms);
-
-      controlledVocabularies.put(p.getCode(), newVocab);
-
+        controlledVocabularies.put(p.getCode(), newVocab);
+      }
     }
+
     return controlledVocabularies;
   }
 
