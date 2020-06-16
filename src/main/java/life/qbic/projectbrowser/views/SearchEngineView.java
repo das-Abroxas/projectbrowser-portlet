@@ -139,7 +139,7 @@ public class SearchEngineView extends CustomComponent {
     navsel.addItem("Experiments Only");
     navsel.addItem("Samples Only");
     navsel.setValue("Whole DB");
-    navsel.setHeight("20px");
+    navsel.setHeight("30px");
     navsel.setNullSelectionAllowed(false);
     navsel.setResponsive(true);
     navsel.setWidth(100, Unit.PERCENTAGE);
@@ -187,7 +187,7 @@ public class SearchEngineView extends CustomComponent {
     searchOk.setSizeUndefined();
     // searchOk.setWidth(15.0f, Unit.EM);
     searchOk.setResponsive(true);
-    searchOk.setHeight("20px");
+    searchOk.setHeight("30px");
 
 
     searchOk.addClickListener(new ClickListener() {
