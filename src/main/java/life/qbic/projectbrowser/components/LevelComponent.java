@@ -60,6 +60,7 @@ import java.text.SimpleDateFormat;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 /**
  * Displays raw data / results.
@@ -124,9 +125,9 @@ public class LevelComponent extends CustomComponent {
   }
 
   public void updateUI(final String type, final String id, final String filterFor) {
-    if (id == null) {
-      return;
-    }
+
+    if (id == null) { return; }
+
     try {
       HierarchicalContainer datasetContainer = new HierarchicalContainer();
       datasetContainer.addContainerProperty("Select", CheckBox.class, null);
@@ -163,9 +164,7 @@ public class LevelComponent extends CustomComponent {
           retrievedDatasetsAll = datahandler.getOpenBisClient().getDataSetsOfProject(projectIdentifier);
 
           for (DataSet ds : retrievedDatasetsAll) {
-
-            ArrayList<DataSet> values =
-                datasetFilter.get(ds.getSample().getIdentifier().toString());
+            ArrayList<DataSet> values = datasetFilter.get(ds.getSample().getIdentifier().toString());
 
             if (values == null) {
               values = new ArrayList<>();
@@ -181,8 +180,10 @@ public class LevelComponent extends CustomComponent {
 
             for (Sample sample : allSamples) {
               checkedTestSamples.put(sample.getCode(), sample);
+
               if (sample.getType().getCode().equals("Q_TEST_SAMPLE")) {
                 Map<String, String> sampleProperties = sample.getProperties();
+
                 TestSampleBean newBean = new TestSampleBean();
                 newBean.setCode(sample.getCode());
                 newBean.setId(sample.getIdentifier().toString());
@@ -198,7 +199,7 @@ public class LevelComponent extends CustomComponent {
 
                 samplesContainer.addBean(newBean);
 
-                ArrayList<DataSet> foundDataset =
+                List<DataSet> foundDataset =
                     datasetFilter.get(sample.getIdentifier().toString());
 
                 if (foundDataset != null) {
@@ -207,6 +208,7 @@ public class LevelComponent extends CustomComponent {
 
                 for (Sample child : sample.getChildren()) {
                   foundDataset = datasetFilter.get(child.getIdentifier().toString());
+
                   if (foundDataset != null) {
                     retrievedDatasets.addAll(foundDataset);
                   }
@@ -243,6 +245,7 @@ public class LevelComponent extends CustomComponent {
                 }
               }
             }
+
             numberOfSamples = samplesContainer.size();
             samples = samplesContainer;
             final GeneratedPropertyContainer gpc = new GeneratedPropertyContainer(samples);
@@ -416,7 +419,6 @@ public class LevelComponent extends CustomComponent {
           break;
 
         case "experiment":
-
           String experimentIdentifier = id;
           retrievedDatasets =
                   datahandler.getOpenBisClient().getDataSetsOfExperimentByIdentifier(experimentIdentifier);
@@ -424,13 +426,11 @@ public class LevelComponent extends CustomComponent {
 
         case "sample":
           String sampleIdentifier = id;
-          String sampleCode = sampleIdentifier.split("/")[2];
-          retrievedDatasets = datahandler.getOpenBisClient().getDataSetsOfSample(sampleCode);
+          retrievedDatasets = datahandler.getOpenBisClient().getDataSetsOfSample(sampleIdentifier);
           break;
 
         default:
-          retrievedDatasets =
-              new ArrayList<DataSet>();
+          retrievedDatasets = new ArrayList<>();
           break;
       }
 
@@ -454,15 +454,12 @@ public class LevelComponent extends CustomComponent {
             "warning");
       } else {
 
-        Map<String, String> samples = new HashMap<String, String>();
-
         // project same for all datasets
         String projectCode =
-                retrievedDatasets.get(0).getExperiment().getIdentifier().toString().split("/")[2];
+                retrievedDatasets.get(0).getSample().getIdentifier().toString().split("/")[2];
 
-        for (DataSet dataset : retrievedDatasets) {
-          samples.put(dataset.getCode(), dataset.getSample().getIdentifier().toString().split("/")[2]);
-        }
+        Map<String, String> samples =
+                retrievedDatasets.stream().collect(Collectors.toMap(DataSet::getCode, ds -> ds.getSample().getCode()));
 
         List<DatasetBean> dsBeans = datahandler.queryDatasetsForFolderStructure(retrievedDatasets);
 
@@ -470,16 +467,14 @@ public class LevelComponent extends CustomComponent {
           Date date = d.getRegistrationDate();
           SimpleDateFormat sd = new SimpleDateFormat("yyyy-MM-dd hh:mm a");
           String dateString = sd.format(date);
-          // Timestamp ts = Timestamp.valueOf(dateString);
           String sampleID = samples.get(d.getCode());
           forExport.addBean(d);
 
-          Sample dsSample = checkedTestSamples.get(sampleID);
+          Sample dsSample  = checkedTestSamples.get(sampleID);
           String secNameDS = d.getProperties().get("Q_SECONDARY_NAME");
-          String secName = datahandler.getSecondaryName(dsSample, secNameDS);
+          String secName   = datahandler.getSecondaryName(dsSample, secNameDS);
 
-          registerDatasetInTable(d, datasetContainer, projectCode, sampleID, dateString, null,
-              secName);
+          registerDatasetInTable(d, datasetContainer, projectCode, sampleID, dateString, null, secName);
         }
 
         if (filterFor.equals("measured"))

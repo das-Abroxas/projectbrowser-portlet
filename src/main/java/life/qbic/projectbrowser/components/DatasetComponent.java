@@ -247,10 +247,6 @@ public class DatasetComponent extends CustomComponent {
                     Sample dsSample = checkedTestSamples.get(sampleID);
 
                     String secNameDS = d.getProperties().get("Q_SECONDARY_NAME");
-                    LOG.info("DataSetBean:                 " + d.getCode());
-                    LOG.info("DataSet Sample:              " + dsSample.getCode() );
-                    LOG.info("DataSetBean Q_SECONDARY_NAME:" + secNameDS);
-
                     String secName = datahandler.getSecondaryName(dsSample, secNameDS);
 
                     forExport.addBean(d);

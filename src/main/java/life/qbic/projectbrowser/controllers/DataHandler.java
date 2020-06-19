@@ -1672,10 +1672,12 @@ public class DataHandler implements Serializable {
       allParents.addAll(sampleParents);
 
       for (Sample parent : sampleParents) {
-        List<String> parentIDs = parent.getParents().stream().map(s -> s.getIdentifier().toString()).collect(Collectors.toList());
-        List<Sample> parents   = openBisClient.getSamplesWithParentsAndChildren(parentIDs);
+        List<String> parentCodes = parent.getParents().stream().map(Sample::getCode).collect(Collectors.toList());
 
-        parents.forEach(s -> tmp.addAll(s.getParents()));
+        if (!parentCodes.isEmpty()) {
+          List<Sample> parents = openBisClient.getSamplesWithParentsAndChildren(parentCodes);
+          parents.forEach(s -> tmp.addAll(s.getParents()));
+        }
       }
 
       sampleParents.clear();
