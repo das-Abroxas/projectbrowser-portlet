@@ -291,7 +291,8 @@ public class CustomVaadinPortlet extends VaadinPortlet {
     List<String> datasetCodes = datasets.stream().map(DataSet::getCode).collect(Collectors.toList());
     List<DataSetFile> res = openbisClient
             .listDataSetFiles(datasetCodes).stream()
-            .filter(dsf -> !dsf.getPath().isEmpty() || !dsf.getPath().equals("original"))
+            .filter(dsf -> !dsf.getPath().isEmpty())
+            .filter(dsf -> !dsf.getPath().equals("original"))
             .collect(Collectors.toList());
     LOG.debug(String.format("listDataSetFiles took %f s", ((endTime - startTime) / 1000000000.0)));
 
@@ -310,7 +311,8 @@ public class CustomVaadinPortlet extends VaadinPortlet {
     List<String> datasetCodes = datasets.stream().map(DataSet::getCode).collect(Collectors.toList());
     List<DataSetFile> res = openbisClient
             .listDataSetFiles(datasetCodes).stream()
-            .filter(dsf -> !dsf.getPath().isEmpty() || !dsf.getPath().equals("original"))
+            .filter(dsf -> !dsf.getPath().isEmpty())
+            .filter(dsf -> !dsf.getPath().equals("original"))
             .collect(Collectors.toList());
     endTime = System.nanoTime();
     LOG.debug(String.format("listDataSetFiles took %f s", ((endTime - startTime) / 1000000000.0)));
@@ -330,7 +332,8 @@ public class CustomVaadinPortlet extends VaadinPortlet {
     List<String> datasetCodes = datasets.stream().map(DataSet::getCode).collect(Collectors.toList());
     List<DataSetFile> res = openbisClient.listDataSetFiles(datasetCodes)
             .stream()
-            .filter(dsf -> !dsf.getPath().isEmpty() || !dsf.getPath().equals("original"))
+            .filter(dsf -> !dsf.getPath().isEmpty())
+            .filter(dsf -> !dsf.getPath().equals("original"))
             .collect(Collectors.toList());
     endTime = System.nanoTime();
     LOG.debug(String.format("listDataSetFiles took %f s", ((endTime - startTime) / 1000000000.0)));

@@ -589,7 +589,8 @@ public class WorkflowViewController {
         List<DataSetFile> datasetFiles = datahandler.getOpenBisClient()
                 .listDataSetFiles(dataset.getCode())
                 .stream()
-                .filter(dsf -> !dsf.getPath().isEmpty() || !dsf.getPath().equals("original"))
+                .filter(dsf -> !dsf.getPath().isEmpty())
+                .filter(dsf -> !dsf.getPath().equals("original"))
                 .collect(Collectors.toList());
 
         path = path + "/original/" + datasetFiles.get(0).getPath();

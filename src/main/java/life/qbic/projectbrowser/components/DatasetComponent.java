@@ -144,7 +144,7 @@ public class DatasetComponent extends CustomComponent {
                 case "experiment":
                     String experimentIdentifier = id;
                     retrievedDatasets =
-                            datahandler.getOpenBisClient().getDataSetsOfExperiment(experimentIdentifier);
+                            datahandler.getOpenBisClient().getDataSetsOfExperimentByIdentifier(experimentIdentifier);
                     Project proj =
                             datahandler.getOpenBisClient().getProjectOfExperimentByIdentifier(experimentIdentifier);
                     List<Sample> extSamples =
@@ -159,9 +159,8 @@ public class DatasetComponent extends CustomComponent {
                     String sampleIdentifier = id;
                     retrievedDatasets = new ArrayList<>();
 
-                    String code = sampleIdentifier.split("/")[2];
                     Sample start =
-                        datahandler.getOpenBisClient().getSampleWithParentsAndChildren(code);
+                        datahandler.getOpenBisClient().getSampleWithParentsAndChildren(sampleIdentifier);
 
                     Project sampProject =
                             datahandler.getOpenBisClient().getProject(start.getProject().getIdentifier().toString());
@@ -178,12 +177,11 @@ public class DatasetComponent extends CustomComponent {
                         checkedTestSamples.put(sample.getCode(), sample);
                     }
 
-                    Set<Sample> startList = new HashSet<Sample>();
+                    Set<Sample> startList = new HashSet<>();
                     Set<Sample> allChildren = getAllChildren(startList, start);
 
                     for (Sample samp : allChildren) {
-                        retrievedDatasets
-                            .addAll(datahandler.getOpenBisClient().getDataSetsOfSample(samp.getCode()));
+                        retrievedDatasets.addAll(datahandler.getOpenBisClient().getDataSetsOfSample(samp.getCode()));
                     }
                     break;
 
@@ -249,6 +247,9 @@ public class DatasetComponent extends CustomComponent {
                     Sample dsSample = checkedTestSamples.get(sampleID);
 
                     String secNameDS = d.getProperties().get("Q_SECONDARY_NAME");
+                    LOG.info("DataSetBean:                 " + d.getCode());
+                    LOG.info("DataSet Sample:              " + dsSample.getCode() );
+                    LOG.info("DataSetBean Q_SECONDARY_NAME:" + secNameDS);
 
                     String secName = datahandler.getSecondaryName(dsSample, secNameDS);
 
@@ -260,6 +261,7 @@ public class DatasetComponent extends CustomComponent {
 
             this.setContainerDataSource(datasetContainer);
             prepareTSVExportFile(forExport, id);
+
         } catch (Exception e) {
             LOG.error(String.format("getting dataset failed for dataset %s %s", type, id), e);
         }
@@ -665,7 +667,6 @@ public class DatasetComponent extends CustomComponent {
             }
         }
     }
-
 
     private class TableCheckBoxValueChangeListener implements ValueChangeListener {
 

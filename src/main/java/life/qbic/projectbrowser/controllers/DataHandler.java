@@ -178,22 +178,22 @@ public class DataHandler implements Serializable {
    */
   public List<DatasetBean> queryDatasetsForFolderStructure(List<DataSet> datasets) {
 
-    List<String> datasetCodes =
-            datasets.stream().map(DataSet::getCode).collect(Collectors.toList());
-    Map<String, DataSet> datasetMap =
-            datasets.stream().collect(Collectors.toMap(DataSet::getCode, ds -> ds ));
+    List<String> datasetCodes       = datasets.stream().map(DataSet::getCode).collect(Collectors.toList());
+    Map<String, DataSet> datasetMap = datasets.stream().collect(Collectors.toMap(DataSet::getCode, ds -> ds ));
 
     Map<String, List<DatasetBean>> folderStructure = new HashMap<>();
-    Map<String, DatasetBean> fileNames = new HashMap<>();
+    Map<String, DatasetBean> fileNames             = new HashMap<>();
 
-
-    // Note: Please work.
-    List<DataSetFile> files = openBisClient.listDataSetFiles(datasetCodes);
+    List<DataSetFile> files = openBisClient.listDataSetFiles(datasetCodes)
+            .stream()
+            .filter(dsf -> !dsf.getPath().isEmpty())
+            .filter(dsf -> !dsf.getPath().equals("original"))
+            .collect(Collectors.toList());
 
     for (DataSetFile dsf : files) {
       DataSet dataset = datasetMap.get(dsf.getDataSetPermId().toString());
-      DatasetBean b   = new DatasetBean();
 
+      DatasetBean b   = new DatasetBean();
       b.setCode( dataset.getCode() );
       b.setType( dataset.getType().getCode() );
       b.setFileSize( dsf.getFileLength() );
@@ -218,79 +218,12 @@ public class DataHandler implements Serializable {
 
       if (folderStructure.containsKey(folderKey)) {
         folderStructure.get(folderKey).add(b);
-
       } else {
         List<DatasetBean> inFolder = new ArrayList<>();
         inFolder.add(b);
         folderStructure.put(folderKey, inFolder);
       }
     }
-
-/*
-    List<String> dsCodes = new ArrayList<>();
-    Map<String, List<String>> params = new HashMap<>();
-    Map<String, String> types = new HashMap<>();
-    Map<String, Map<String, String>> props = new LinkedHashMap<>();
-
-    for (DataSet ds : datasets) {
-      dsCodes.add(ds.getCode());
-      types.put(ds.getCode(), ds.getType().getCode());
-      props.put(ds.getCode(), ds.getProperties());
-    }
-
-    params.put("codes", dsCodes);
-    QueryTableModel res = getOpenBisClient().queryFileInformation(params);
-
-    // ToDo: This should work, but here starts the new code in case it doesn't 07.08.15 - Andreas
-    // Map<String, List<DatasetBean>> folderStructure = new HashMap<>();
-    // Map<String, DatasetBean> fileNames = new HashMap<>();
-
-    for (Serializable[] ss : res.getRows()) {
-
-      DatasetBean b = new DatasetBean();
-      String dsCode = (String) ss[0];
-      String dssPath = (String) ss[1];
-      String fileName = (String) ss[2];
-      Long size = (Long) ss[3];
-
-      b.setCode(dsCode);
-      b.setType(types.get(dsCode));
-      b.setFileName(fileName);
-      b.setDssPath(dssPath);
-      b.setFileSize(size);
-      b.setRegistrationDate(parseDate((String) ss[5]));
-      b.setProperties(props.get(dsCode));
-
-      // both code and filename are needed for the keys to be unique
-      // fileNames.put(dsCode + fileName, b);
-      fileNames.put(dsCode + dssPath, b);
-
-      // store file beans under their respective code+folder, except those with "original"
-      // String folderKey = (String) ss[4];
-      // Safest way to be unique:
-      //   folder is dss path without the last part of the path ("original" isn't changed)
-      String folderKey = dssPath;
-      if (null != dssPath && dssPath.length() > 0) {
-        int endIndex = dssPath.lastIndexOf("/");
-        if (endIndex != -1) {
-          folderKey = dssPath.substring(0, endIndex); // not forgot to put check if(endIndex != -1)
-        }
-      }
-      // LOG.debug("full path " + b.getDssPath());
-      if (!folderKey.equals("original"))
-        folderKey = dsCode + folderKey;
-      // LOG.debug("folder key: " + folderKey);
-      // folder known, add this file to folder
-      if (folderStructure.containsKey(folderKey)) {
-        folderStructure.get(folderKey).add(b);
-      } else {
-        // folder unknown, create new folder with dataset list containing this file
-        List<DatasetBean> inFolder = new ArrayList<>();
-        inFolder.add(b);
-        folderStructure.put(folderKey, inFolder);
-      }
-    }
-*/
 
     // System.out.println("known folders with data: " + folderStructure.size());
     // System.out.println("known fileNames: " + fileNames.size());
@@ -299,8 +232,7 @@ public class DataHandler implements Serializable {
     // }
     // find children samples for our folders
     for (String fileNameKey : fileNames.keySet()) {
-      // if the fileNameKey is in our folder map we have found a folder (not a file and not the
-      // "original" folder)
+      // if the fileNameKey is in our folder map we have found a folder (not a file and not the "original" folder)
       if (folderStructure.containsKey(fileNameKey)) {
         // and we add the files to this folder bean
         // System.out.println("filekey: " + fileNameKey);
@@ -314,6 +246,19 @@ public class DataHandler implements Serializable {
       }
     }
 
+    /*
+    LOG.info("-------------------- FolderStructure Map --------------------");
+    folderStructure.forEach( (k,v) -> {
+      System.out.println(k);
+      v.forEach(db -> {
+        System.out.println("  "+db);
+        if (db.hasChildren()) db.getChildren().forEach(dbc -> System.out.println("    "+dbc));
+      });
+      System.out.println();
+    });
+    LOG.info("------------------- /FolderStructure Map --------------------");
+    */
+
     // System.out.println("first ds in original:");
     // DatasetBean ds = folderStructure.get("original").get(0);
     // System.out.println(ds);
@@ -321,11 +266,16 @@ public class DataHandler implements Serializable {
     // System.out.println(ds.getChildren());
     // Now the structure should be set up. Root structures have "original" as parent folder
     List<DatasetBean> roots = folderStructure.get("original");
+
     // Remove empty folders
     List<DatasetBean> level = roots;
     while (!level.isEmpty()) {
       List<DatasetBean> collect = new ArrayList<>();
       List<DatasetBean> toRemove = new ArrayList<>();
+
+      //roots.forEach( db -> LOG.info(db) );
+      //LOG.info("---------- Iteration -----------");
+
       for (DatasetBean b : level) {
         if (b.hasChildren()) {
           // collect subfolders + files for recursion
@@ -340,18 +290,22 @@ public class DataHandler implements Serializable {
       level.removeAll(toRemove);
       level = collect;
     }
-    LOG.debug(fileNames.size() + " files found");
-    LOG.debug(folderStructure.size() + " folders found");
-    LOG.debug(roots.size() + " root folders");
+
+    /*
+    LOG.info(fileNames.size() + " files found");
+    LOG.info(folderStructure.size() + " folders found");
+    LOG.info(roots.size() + " root folders");
+    LOG.info("subfiles for the first 5 root folders: ");
+
     int annoyanceCount = 5;
-    LOG.debug("subfiles for the first 5 root folders: ");
     for (DatasetBean b : roots) {
       annoyanceCount--;
       if (annoyanceCount > 0) {
         if (b.hasChildren())
-          LOG.debug("root has attached subfiles: " + b.getChildren().size());
+          LOG.info("root has attached subfiles: " + b.getChildren().size());
       }
     }
+    */
     return roots;
   }
 
@@ -1054,7 +1008,9 @@ public class DataHandler implements Serializable {
     List<DataSetFile> datasetFiles = openBisClient
             .listDataSetFiles(dataset.getCode())
             .stream()
-            .filter(dsf -> !dsf.getPath().isEmpty() || !dsf.getPath().equals("original"))
+            .filter(dsf -> !dsf.getPath().isEmpty())
+            .filter(dsf -> !dsf.getPath().equals("original"))
+            //.filter(dsf -> !dsf.getPath().isEmpty())
             .collect(Collectors.toList());
 
     DatasetBean datasetBean = new DatasetBean();
@@ -1698,15 +1654,53 @@ public class DataHandler implements Serializable {
    * @param samp
    * @return
    */
-  public String getSecondaryName(Sample samp, String datsetSecName) {
-    List<Sample> firstParents = samp.getParents();
-    String secondaryName = "";
-    Set<String> secNamesTest = new LinkedHashSet<>();
-    Set<String> secNamesBiological = new LinkedHashSet<>();
-    Set<String> secNamesEntities = new LinkedHashSet<>();
-    Set<String> allDescriptions = new LinkedHashSet<>();
-    List<Sample> allParents = new ArrayList<>();
+  public String getSecondaryName(Sample samp, String datasetSecName) {
 
+    List<Sample> firstParents =
+            openBisClient.getSampleWithParentsAndChildren(samp.getIdentifier().toString()).getParents();
+
+    String secondaryName = "";
+    Set<String> secNamesEntities   = new LinkedHashSet<>();
+    Set<String> secNamesBiological = new LinkedHashSet<>();
+    Set<String> secNamesTest       = new LinkedHashSet<>();
+    Set<String> allDescriptions    = new LinkedHashSet<>();
+    List<Sample> allParents    = new ArrayList<>();
+    List<Sample> sampleParents = new ArrayList<>(firstParents);
+
+    while (!sampleParents.isEmpty()) {
+      List<Sample> tmp = new ArrayList<>();
+      allParents.addAll(sampleParents);
+
+      for (Sample parent : sampleParents) {
+        List<String> parentIDs = parent.getParents().stream().map(s -> s.getIdentifier().toString()).collect(Collectors.toList());
+        List<Sample> parents   = openBisClient.getSamplesWithParentsAndChildren(parentIDs);
+
+        parents.forEach(s -> tmp.addAll(s.getParents()));
+      }
+
+      sampleParents.clear();
+      sampleParents.addAll(tmp);
+    }
+
+    for (Sample pp : allParents) {
+      String new_sec = pp.getProperties().get("Q_SECONDARY_NAME");
+
+      if (new_sec != null) {
+        switch (pp.getType().getCode()) {
+          case "Q_TEST_SAMPLE":
+            secNamesTest.add(new_sec);
+            break;
+          case "Q_BIOLOGICAL_SAMPLE":
+            secNamesBiological.add(new_sec);
+            break;
+          case "Q_BIOLOGICAL_ENTITY":
+            secNamesEntities.add(new_sec);
+            break;
+        }
+      }
+    }
+
+    /*
     for (Sample p : firstParents) {
       allParents.add(p);
       for (Sample q : p.getParents()) {
@@ -1726,6 +1720,7 @@ public class DataHandler implements Serializable {
         if (new_sec != null) {
           secNamesTest.add(new_sec);
         }
+
       } else if (pp.getType().getCode().equals("Q_BIOLOGICAL_SAMPLE")) {
         String new_sec = pp.getProperties().get("Q_SECONDARY_NAME");
         if (new_sec != null) {
@@ -1739,13 +1734,14 @@ public class DataHandler implements Serializable {
         }
       }
     }
+    */
 
     allDescriptions.addAll(secNamesEntities);
     allDescriptions.addAll(secNamesBiological);
     allDescriptions.addAll(secNamesTest);
 
-    if (datsetSecName != null) {
-      allDescriptions.add(datsetSecName);
+    if (datasetSecName != null) {
+      allDescriptions.add(datasetSecName);
     }
 
     secondaryName = String.join("_", allDescriptions);

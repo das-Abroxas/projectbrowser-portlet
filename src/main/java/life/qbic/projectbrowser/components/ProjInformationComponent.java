@@ -1032,7 +1032,7 @@ public class ProjInformationComponent extends CustomComponent {
     List<Experiment> wfExperiments = datahandler.getOpenBisClient().getExperiments(esc);
 
     for (Experiment exp : wfExperiments) {
-      // Note: Should be exp.getIdentifier().toString() since getCode() never contains project code
+      // Note: Should be exp.getIdentifier().toString() since getCode() of experiment never contains project code
       if (exp.getCode().contains(projectBean.getCode())) {
         wfSamples
             .addAll(datahandler.getOpenBisClient().getSamplesOfExperiment(exp.getIdentifier().toString()));
