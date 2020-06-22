@@ -17,6 +17,9 @@ package life.qbic.projectbrowser.controllers;
 
 import ch.ethz.sis.openbis.generic.asapi.v3.dto.experiment.Experiment;
 import ch.ethz.sis.openbis.generic.asapi.v3.dto.sample.Sample;
+
+import com.google.common.collect.Lists;
+
 import com.liferay.portal.kernel.exception.PortalException;
 import com.liferay.portal.kernel.exception.SystemException;
 import com.liferay.portal.kernel.util.PropsKeys;
@@ -39,28 +42,24 @@ import javax.xml.bind.JAXBElement;
 import javax.xml.bind.JAXBException;
 import javax.xml.namespace.QName;
 import java.io.Serializable;
-import java.util.*;
+import java.util.List;
 
 public class MultiscaleController implements Serializable {
 
+  private static final long serialVersionUID = -8194363636454560096L;
   private static final Logger LOG = LogManager.getLogger(MultiscaleController.class);
-
 
   private OpenBisClient openbis;
   private JAXBElement<Notes> jaxbelem;
   private String user;
-  private String currentId;
+  private String currentId, currentType;
   private String currentCode;
+
 
   public MultiscaleController(OpenBisClient openbis, String user) {
     this.openbis = openbis;
     this.user = user;
   }
-
-  /**
-   * 
-   */
-  private static final long serialVersionUID = -8194363636454560096L;
 
   public boolean isReady() {
     return jaxbelem != null && jaxbelem.getValue() != null;
@@ -107,10 +106,13 @@ public class MultiscaleController implements Serializable {
       if (xml != null) {
         jaxbelem = HistoryReader.parseNotes(xml);
       } else {
-        jaxbelem = new JAXBElement<Notes>(new QName(""), Notes.class, new Notes());
+        jaxbelem = new JAXBElement<>(new QName(""), Notes.class, new Notes());
       }
+
       currentId = id;
+      currentType = type.name();
       return true;
+
     } catch (IndexOutOfBoundsException | JAXBException | NullPointerException e) {
       currentId = null;
       currentCode = null;
@@ -126,17 +128,41 @@ public class MultiscaleController implements Serializable {
   }
 
   public boolean addNote(Note note) {
-    if (currentId != null) {
+    boolean success = false;
+
+    if (currentId != null && currentType != null) {
       jaxbelem.getValue().getNote().add(note);
-      Map<String, Object> params = new HashMap<String, Object>();
-      params.put("id", currentId);
-      params.put("user", note.getUsername());
-      params.put("comment", note.getComment());
-      params.put("time", note.getTime());
-      openbis.triggerIngestionService("add-to-xml-note", params);
-      return true;
+
+      if ("EXPERIMENT".equals(currentType)) {
+        Experiment experiment = openbis.getExperiment(currentId);
+        String notes = addNoteToXML(experiment.getProperty("Q_NOTES"), note);
+        success = openbis.updateExperiment(currentId, "Q_NOTES", notes);
+
+      } else if ("SAMPLE".equals(currentType)) {
+        Sample sample = openbis.getSample(currentId);
+        String notes = addNoteToXML(sample.getProperty("Q_NOTES"), note);
+        success = openbis.updateSample(currentId, "Q_NOTES", notes);
+      }
     }
-    return false;
+
+    return success;
+  }
+
+  public String addNoteToXML(String xml, Note note) {
+    if (xml == null || xml.isEmpty())
+      xml = "<notes>\n</notes>";
+
+    List<String> lines = Lists.newArrayList(xml.split("\n"));
+    lines.remove("</notes>");
+
+    lines.add("<note>");
+    lines.add(String.format("<comment>%s</comment>", note.getComment()));
+    lines.add(String.format("<time>%s</time>", note.getTime()));
+    lines.add(String.format("<username>%s</username>", note.getUsername()));
+    lines.add("</note>");
+    lines.add("</notes>");
+
+    return String.join("\n", lines);
   }
 
   public String getLiferayUser(String userID) {

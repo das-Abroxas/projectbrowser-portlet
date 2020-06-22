@@ -42,9 +42,6 @@ import life.qbic.projectbrowser.model.notes.Note;
 
 public class MultiscaleComponent extends CustomComponent {
 
-  /**
-   * 
-   */
   private static final long serialVersionUID = 4700958245761376884L;
   private MultiscaleController controller;
   private VerticalLayout mainlayout;
