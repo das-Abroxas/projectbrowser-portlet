@@ -776,16 +776,18 @@ public class DatasetComponent extends CustomComponent {
     // Recursively get all samples which are above the corresponding sample in the tree
     public Set<Sample> getAllChildren(Set<Sample> found, Sample sample) {
         // List<Sample> current = datahandler.getOpenBisClient().getChildrenSamples(sample);
-        List<Sample> current = sample.getChildren();
+        Sample tmp = datahandler.getOpenBisClient().getSampleWithParentsAndChildren(sample.getIdentifier().toString());
+        List<Sample> children = tmp.getChildren();
 
-        if (current.size() == 0) {
+        if (children.size() == 0) {
             return found;
         }
 
-        for (int i = 0; i < current.size(); i++) {
-            found.add(current.get(i));
-            getAllChildren(found, current.get(i));
+        for (Sample child : children) {
+            found.add(child);
+            getAllChildren(found, child);
         }
+
         return found;
     }
 }
