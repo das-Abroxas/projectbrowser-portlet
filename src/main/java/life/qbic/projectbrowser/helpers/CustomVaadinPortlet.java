@@ -17,46 +17,30 @@
  *******************************************************************************/
 package life.qbic.projectbrowser.helpers;
 
+import ch.ethz.sis.openbis.generic.asapi.v3.dto.dataset.DataSet;
+import ch.ethz.sis.openbis.generic.dssapi.v3.dto.datasetfile.DataSetFile;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.Serializable;
-import java.text.SimpleDateFormat;
-import java.util.AbstractMap;
-import java.util.AbstractMap.SimpleEntry;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Set;
-import java.util.stream.Collectors;
+import com.vaadin.server.*;
+
+import life.qbic.openbis.openbisclient.OpenBisClient;
+import life.qbic.projectbrowser.model.ExperimentBean;
+import life.qbic.projectbrowser.model.ProjectBean;
+import life.qbic.projectbrowser.model.SampleBean;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import javax.portlet.PortletException;
 import javax.portlet.PortletSession;
 import javax.portlet.ResourceResponse;
 import javax.portlet.ResourceURL;
 import javax.servlet.http.HttpServletResponse;
-
-import ch.ethz.sis.openbis.generic.asapi.v3.dto.dataset.DataSet;
-import ch.ethz.sis.openbis.generic.dssapi.v3.dto.datasetfile.DataSetFile;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
-import life.qbic.projectbrowser.model.DatasetBean;
-import life.qbic.projectbrowser.model.ExperimentBean;
-import life.qbic.projectbrowser.model.ProjectBean;
-import life.qbic.projectbrowser.model.SampleBean;
-
-import life.qbic.openbis.openbisclient.OpenBisClient;
-
-import com.vaadin.server.DeploymentConfiguration;
-import com.vaadin.server.ServiceException;
-import com.vaadin.server.VaadinPortlet;
-import com.vaadin.server.VaadinPortletService;
-import com.vaadin.server.VaadinRequest;
+import java.io.IOException;
+import java.io.InputStream;
+import java.text.SimpleDateFormat;
+import java.util.AbstractMap.SimpleEntry;
+import java.util.*;
+import java.util.Map.Entry;
+import java.util.stream.Collectors;
 
 /**
  * 
@@ -68,10 +52,8 @@ import com.vaadin.server.VaadinRequest;
  * 
  */
 public class CustomVaadinPortlet extends VaadinPortlet {
-  private static final long serialVersionUID = -13615405654173335L;
 
   private class CustomVaadinPortletService extends VaadinPortletService {
-
     private static final long serialVersionUID = -6282242585931296999L;
 
     public CustomVaadinPortletService(final VaadinPortlet portlet,
@@ -79,30 +61,30 @@ public class CustomVaadinPortlet extends VaadinPortlet {
       super(portlet, config);
     }
 
-
     /**
      * This method is used to determine the uri for Vaadin resources like theme or widgetset.
      * It's overriden to point to this web application context instead of ROOT context.
      */
     @Override
     public String getStaticFileLocation(final VaadinRequest request) {
-      // return super.getStaticFileLocation(request);
-      // self contained approach:
       return request.getContextPath();
     }
   }
 
+
+  private static final long serialVersionUID = -13615405654173335L;
   private static final Logger LOG = LogManager.getLogger(CustomVaadinPortletService.class);
   public static final String RESOURCE_ID = "mainPortletResourceId";
   public static final String RESOURCE_ATTRIBUTE = "resURL";
 
   @Override
-  protected void doDispatch(javax.portlet.RenderRequest request, javax.portlet.RenderResponse response)
+  protected void doDispatch(javax.portlet.RenderRequest request,
+                            javax.portlet.RenderResponse response)
           throws PortletException, IOException {
-    if (request.getPortletSession().getAttribute(RESOURCE_ATTRIBUTE,
-        PortletSession.APPLICATION_SCOPE) == null) {
+
+    if (request.getPortletSession().getAttribute(
+            RESOURCE_ATTRIBUTE, PortletSession.APPLICATION_SCOPE) == null) {
       ResourceURL resURL = response.createResourceURL();
-      // get Resource ID ?
       resURL.setResourceID(RESOURCE_ID);
       request.getPortletSession().setAttribute(RESOURCE_ATTRIBUTE, resURL.toString(),
           PortletSession.APPLICATION_SCOPE);
@@ -113,32 +95,33 @@ public class CustomVaadinPortlet extends VaadinPortlet {
   @Override
   public void serveResource(javax.portlet.ResourceRequest request, ResourceResponse response)
           throws PortletException, IOException {
-    // System.out.println(request.getResourceID());
-    // System.out.println(RESOURCE_ID);
+
     if (request.getResourceID().equals("openbisUnreachable")) {
       response.setContentType("text/plain");
-      response.setProperty(ResourceResponse.HTTP_STATUS_CODE, String.valueOf(HttpServletResponse.SC_GATEWAY_TIMEOUT));
-      response.getWriter().append(
-          "Internal Error.\nRetry later or contact your project manager.\n" + "Time: "
-              + (new Date()).toString());
+      response.setProperty(ResourceResponse.HTTP_STATUS_CODE,
+              String.valueOf(HttpServletResponse.SC_GATEWAY_TIMEOUT));
+      response.getWriter().append("Internal Error.\n");
+      response.getWriter().append("Retry later or contact your project manager.\n");
+      response.getWriter().append(String.format("Time: %s", (new Date()).toString()));
+
     } else if (request.getResourceID().equals(RESOURCE_ID)) {
       serveDownloadResource(request, response);
+
     } else {
       super.serveResource(request, response);
     }
   }
 
-  //used!
   public void serveDownloadResource(javax.portlet.ResourceRequest request, ResourceResponse response)
-          throws PortletException, IOException {
-    OpenBisClient openBisClient =
-        (OpenBisClient) request.getPortletSession().getAttribute("openbisClient",
-            PortletSession.APPLICATION_SCOPE);
+          throws IOException {
     String liferayUserId = request.getRemoteUser();
     LOG.info(String.format("Liferay User %s is downloading...", liferayUserId));
 
-    Object bean = request.getPortletSession().getAttribute("qbic_download",
-            PortletSession.APPLICATION_SCOPE);
+    OpenBisClient openBisClient =
+        (OpenBisClient) request.getPortletSession().getAttribute("openbisClient", PortletSession.APPLICATION_SCOPE);
+
+    Object bean =
+            request.getPortletSession().getAttribute("qbic_download", PortletSession.APPLICATION_SCOPE);
 
     if (bean instanceof ProjectBean) {
       serveProject2((ProjectBean) bean, new TarWriter(), response, openBisClient);
@@ -147,13 +130,15 @@ public class CustomVaadinPortlet extends VaadinPortlet {
     } else if (bean instanceof SampleBean) {
       serveSample2((SampleBean) bean, new TarWriter(), response, openBisClient);
     } else if (bean instanceof Map<?, ?>) {
-      HashMap<String, SimpleEntry<String, Long>> entry = null;
+      HashMap<String, SimpleEntry<String, Long>> entry;
 
       try {
         entry = (HashMap<String, SimpleEntry<String, Long>>) bean;
+
       } catch (Exception e) {
-        LOG.error("portlet session attribute 'qbic_download' contains wrong entry set",
-            e.getStackTrace());
+        LOG.error("portlet session attribute 'qbic_download' contains wrong entry set");
+        LOG.error(e.getStackTrace());
+
         response.setContentType("text/javascript");
         response.setProperty(ResourceResponse.HTTP_STATUS_CODE,
                 String.valueOf(HttpServletResponse.SC_BAD_REQUEST));
@@ -171,7 +156,7 @@ public class CustomVaadinPortlet extends VaadinPortlet {
   }
 
   /**
-   * Note: the provided stream will be closed.
+   * Note: The provided stream will be closed.
    * @param entries
    * @param writer writes
    * @param response writer writes to its outputstream
@@ -181,58 +166,37 @@ public class CustomVaadinPortlet extends VaadinPortlet {
                             ResourceResponse response, OpenBisClient openbisClient) {
 
     if (entries.keySet().size() > 1) {
-
       String timestamp = new SimpleDateFormat("yyyyMMddhhmm").format(new Date());
-
-      String filename = "qbicdatasets" + timestamp + ".tar";
-
-      // response.setContentType(writer.getContentType());
-      StringBuilder sb = new StringBuilder("attachement; filename=\"");
-      sb.append(filename);
-      sb.append("\"");
-      response.setProperty("Content-Disposition", sb.toString());
-
+      String filename  = "qbicdatasets" + timestamp + ".tar";
+      String attach = String.format("attachement; filename=\"%s\"", filename);
       long tarFileLength = writer.computeTarLength2(entries);
 
-      LOG.debug("tar file length: "+String.valueOf(tarFileLength));
-
-      // Integer fileSize = (int) (long) tarFileLength;
-
-      // For some reason setContentLength does not work
+      response.setProperty("Content-Disposition", attach);
       response.setProperty("Content-Length", String.valueOf(tarFileLength));
 
-      // Seems to work with Liferay 6.2, when using setProperty some tarred files are corrupt,
-      // unexpected end of file
-      // Didn't work with Liferay 6.2 either
-      // However deactivating GzipFilter by setting
-      // com.liferay.portal.servlet.filters.gzip.GZipFilter=false seems to fix it
-      // Probably the Content Length can't be set in the header of this Filter
-      // response.setContentLength(fileSize);
-
+      LOG.debug("tar file length: "+tarFileLength);
 
       try {
         writer.setOutputStream(response.getPortletOutputStream());
 
       } catch (IOException e) {
-        // TODO Auto-generated catch block
         e.printStackTrace();
       }
 
       Set<Entry<String, SimpleEntry<String, Long>>> entrySet = entries.entrySet();
       Iterator<Entry<String, SimpleEntry<String, Long>>> it = entrySet.iterator();
+
       while (it.hasNext()) {
         Entry<String, SimpleEntry<String, Long>> entry = it.next();
         String entryKey = entry.getKey().replaceFirst(entry.getValue().getKey() + "/", "");
         String[] splittedFilePath = entryKey.split("/");
 
         if ((splittedFilePath.length == 0) || (splittedFilePath == null)) {
-          // writer.writeEntry(entry.getValue().getKey() + "/" + entry.getKey(),
           writer.writeEntry(entry.getKey(), openbisClient.getDatasetStream(entry.getValue()
               .getKey()), entry.getValue().getValue());
         } else {
-          // writer.writeEntry(entry.getValue().getKey() + "/" + entry.getKey(), openbisClient
-          writer.writeEntry(splittedFilePath[splittedFilePath.length - 1], openbisClient
-              .getDatasetStream(entry.getValue().getKey(), entryKey), entry.getValue().getValue());
+          writer.writeEntry(splittedFilePath[splittedFilePath.length - 1],
+                  openbisClient.getDatasetStream(entry.getValue().getKey(), entryKey), entry.getValue().getValue());
         }
       }
       writer.closeStream();
@@ -241,27 +205,20 @@ public class CustomVaadinPortlet extends VaadinPortlet {
       Set<Entry<String, SimpleEntry<String, Long>>> entrySet = entries.entrySet();
       Iterator<Entry<String, SimpleEntry<String, Long>>> it = entrySet.iterator();
 
-      // response.setContentType(writer.getContentType());
-
       while (it.hasNext()) {
         Entry<String, SimpleEntry<String, Long>> entry = it.next();
         String entryKey = entry.getKey().replaceFirst(entry.getValue().getKey() + "/", "");
         String[] splittedFilePath = entryKey.split("/");
 
         InputStream datasetStream =
-            openbisClient.getDatasetStream(entry.getValue().getKey(), entryKey);
+                openbisClient.getDatasetStream(entry.getValue().getKey(), entryKey);
 
-        StringBuilder sb = new StringBuilder("attachement; filename=\"");
-        sb.append(splittedFilePath[splittedFilePath.length - 1]);
-        sb.append("\"");
-        response.setProperty("Content-Disposition", sb.toString());
+        String attach = String.format("attachement; filename=\"%s\"",
+                splittedFilePath[splittedFilePath.length - 1]);
+        response.setProperty("Content-Disposition", attach);
         response.setProperty("Content-Type",
             getPortletContext().getMimeType((splittedFilePath[splittedFilePath.length - 1])));
-        // Integer fileSize = (int) (long) entry.getValue().getValue();
-
         response.setProperty("Content-Length", String.valueOf(entry.getValue().getValue()));
-
-        // response.setContentLength(fileSize);
 
         byte[] buffer = new byte[32768];
         int bytesRead;
@@ -271,10 +228,8 @@ public class CustomVaadinPortlet extends VaadinPortlet {
           }
 
         } catch (IOException e) {
-          // TODO Auto-generated catch block
           e.printStackTrace();
         }
-
       }
     }
   }
@@ -326,7 +281,7 @@ public class CustomVaadinPortlet extends VaadinPortlet {
     long startTime = System.nanoTime();
     List<DataSet> datasets = openbisClient.getDataSetsOfSampleByIdentifier(bean.getId());
     long endTime = System.nanoTime();
-    LOG.debug(String.format("getDataSetsOfProjectByIdentifier took %f s", ((endTime - startTime) / 1000000000.0)));
+    LOG.debug(String.format("getDataSetsOfSampleByIdentifier took %f s", ((endTime - startTime) / 1000000000.0)));
 
     startTime = System.nanoTime();
     List<String> datasetCodes = datasets.stream().map(DataSet::getCode).collect(Collectors.toList());
@@ -354,26 +309,24 @@ public class CustomVaadinPortlet extends VaadinPortlet {
   void writeToClient(ResourceResponse response, TarWriter writer, String filename,
       Map<String, SimpleEntry<String, Long>> entries, OpenBisClient openbisClient,
       String openbisCode) {
-    response.setContentType(writer.getContentType());
-    StringBuilder sb = new StringBuilder("attachement; filename=\"");
-    sb.append(filename);
-    sb.append("\"");
-    response.setProperty("Content-Disposition", sb.toString());
 
     long tarFileLength = writer.computeTarLength2(entries);
-    LOG.debug(String.valueOf(tarFileLength));
-    // response.setContentLength((int) tarFileLength);
-    // For some reason setContentLength did not work as expected (liferay 6.1.2)
+    response.setContentType(writer.getContentType());
+    String attach = String.format("attachement; filename=\"%s\"", filename);
+    response.setProperty("Content-Disposition", attach);
     response.setProperty("Content-Length", String.valueOf(tarFileLength));
+
+    LOG.debug(String.valueOf(tarFileLength));
+
     try {
       writer.setOutputStream(response.getPortletOutputStream());
     } catch (IOException e) {
-      // TODO Auto-generated catch block
       e.printStackTrace();
     }
 
     Set<Entry<String, SimpleEntry<String, Long>>> entrySet = entries.entrySet();
     Iterator<Entry<String, SimpleEntry<String, Long>>> it = entrySet.iterator();
+
     while (it.hasNext()) {
       Entry<String, SimpleEntry<String, Long>> entry = it.next();
       String entryKey = entry.getKey().replaceFirst(entry.getValue().getKey() + "/", "");
@@ -383,8 +336,8 @@ public class CustomVaadinPortlet extends VaadinPortlet {
         writer.writeEntry(openbisCode + "/" + entry.getKey(),
             openbisClient.getDatasetStream(entry.getValue().getKey()), entry.getValue().getValue());
       } else {
-        writer.writeEntry(openbisCode + "/" + entry.getKey(), openbisClient.getDatasetStream(entry
-            .getValue().getKey(), entryKey), entry.getValue().getValue());
+        writer.writeEntry(openbisCode + "/" + entry.getKey(),
+                openbisClient.getDatasetStream(entry.getValue().getKey(), entryKey), entry.getValue().getValue());
       }
     }
     writer.closeStream();
@@ -401,54 +354,6 @@ public class CustomVaadinPortlet extends VaadinPortlet {
     }
 
     return entries;
-  }
-
-  /**
-   * Given datasetbean (and its children) is included into the entry, which can be used for download
-   * 
-   * @param db
-   * @param entries
-   * @return
-   */
-  Map<String, SimpleEntry<String, Long>> addEntry(DatasetBean db,
-      Map<String, SimpleEntry<String, Long>> entries) {
-    StringBuilder sb = new StringBuilder(db.getCode());
-    sb.append("/");
-    sb.append(db.getName());
-    if (db.getIsDirectory()) {
-      for (DatasetBean child : db.getChildren()) {
-        addChildrensEntry(child, entries, sb.toString());
-      }
-    } else {
-      entries.put(sb.toString(),
-          new SimpleEntry<String, Long>(db.getCode(), db.getFileSize()));
-    }
-    return entries;
-  }
-
-  /**
-   * Helper function of addEntry. Adds name of parent db to children.
-   * 
-   * @param db
-   * @param entries
-   * @param name
-   * @return
-   */
-  private Map<String, SimpleEntry<String, Long>> addChildrensEntry(DatasetBean db,
-      Map<String, SimpleEntry<String, Long>> entries, String name) {
-    StringBuilder sb = new StringBuilder(name);
-    sb.append("/");
-    sb.append(db.getName());
-    if (db.getIsDirectory()) {
-      for (DatasetBean child : db.getChildren()) {
-        addChildrensEntry(child, entries, sb.toString());
-      }
-    } else {
-      entries.put(sb.toString(),
-          new SimpleEntry<String, Long>(db.getCode(), db.getFileSize()));
-    }
-    return entries;
-
   }
 
   @Override
