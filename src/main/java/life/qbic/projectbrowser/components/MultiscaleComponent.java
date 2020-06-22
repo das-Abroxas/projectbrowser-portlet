@@ -15,30 +15,24 @@
  *******************************************************************************/
 package life.qbic.projectbrowser.components;
 
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.List;
-
 import com.vaadin.shared.ui.label.ContentMode;
-import com.vaadin.ui.Alignment;
-import com.vaadin.ui.Button;
+import com.vaadin.ui.*;
 import com.vaadin.ui.Button.ClickEvent;
 import com.vaadin.ui.Button.ClickListener;
-import com.vaadin.ui.CustomComponent;
-import com.vaadin.ui.HorizontalLayout;
-import com.vaadin.ui.Label;
-import com.vaadin.ui.Notification;
-import com.vaadin.ui.Panel;
-import com.vaadin.ui.TextArea;
-import com.vaadin.ui.UI;
-import com.vaadin.ui.VerticalLayout;
 import com.vaadin.ui.themes.ValoTheme;
-
-import ch.ethz.sis.openbis.generic.asapi.v3.dto.entitytype.EntityKind;
 
 import life.qbic.projectbrowser.controllers.MultiscaleController;
 import life.qbic.projectbrowser.model.EntityType;
 import life.qbic.projectbrowser.model.notes.Note;
+
+import java.text.SimpleDateFormat;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
 
 public class MultiscaleComponent extends CustomComponent {
 
@@ -177,25 +171,31 @@ public class MultiscaleComponent extends CustomComponent {
   }
 
   public String translateComments(List<Note> notes) {
+    List<String> comments = new ArrayList<>();
 
-    String lastDay = "";
-    String labelString = "";
     for (Note n : notes) {
-      String date = n.getTime();
-      String[] datetime = date.split("T");
-      String day = datetime[0];
-      String time = datetime[1].split("\\.")[0];
-      if (!lastDay.equals(day)) {
-        lastDay = day;
-        labelString += String.format("%s\n", "<u>" + day + "</u>");
-      }
-      labelString += String.format("%s\n%s %s\n",
-          "<p><b>" + controller.getLiferayUser(n.getUsername()) + "</b>.</p>", n.getComment(),
-          "<p><i><small>" + time + "</small></i>.</p>");
+      DateTimeFormatter inputFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
+      DateTimeFormatter outputFormat = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm");
+      LocalDateTime tmp = LocalDateTime.parse(n.getTime().split("\\.")[0], inputFormat);
+      ZonedDateTime utcDateTime = ZonedDateTime.of(
+              tmp.getYear(),
+              tmp.getMonthValue(),
+              tmp.getDayOfMonth(),
+              tmp.getHour(),
+              tmp.getMinute(),
+              0, 0,
+              ZoneId.of("UTC"));
+      ZonedDateTime deDateTime = utcDateTime.withZoneSameInstant(ZoneId.of("Europe/Berlin"));
+
+      comments.add(String.format(
+              "<div id=\"comment\" style=\"padding: 5px;\">" +
+                      "<u><b>%s</b> - <small><i>%s</i></small></u>" +
+                      "<p style=\"margin-left: 10px;\">%s</p>" +
+                  "</div>",
+          controller.getLiferayUser(n.getUsername()), outputFormat.format(deDateTime), n.getComment())
+      );
     }
 
-    return labelString;
-
+    return String.join("\n", comments);
   }
-
 }
