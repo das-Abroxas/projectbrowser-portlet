@@ -20,6 +20,7 @@ import ch.ethz.sis.openbis.generic.asapi.v3.dto.experiment.Experiment;
 import ch.ethz.sis.openbis.generic.asapi.v3.dto.experiment.search.ExperimentSearchCriteria;
 import ch.ethz.sis.openbis.generic.asapi.v3.dto.sample.Sample;
 import ch.ethz.sis.openbis.generic.asapi.v3.dto.sample.search.SampleSearchCriteria;
+import com.vaadin.data.Item;
 import com.vaadin.data.Property.ValueChangeEvent;
 import com.vaadin.data.Property.ValueChangeListener;
 import com.vaadin.data.util.BeanItemContainer;
@@ -678,68 +679,65 @@ public class ProjInformationComponent extends CustomComponent {
       }
     });
 
-    this.datasetTable.addItemClickListener(new ItemClickListener() {
-      @Override
-      public void itemClick(ItemClickEvent event) {
-        if (!event.isDoubleClick()) {
-          String datasetCode =
-              (String) datasetTable.getItem(event.getItemId()).getItemProperty("CODE").getValue();
-          String datasetFileName = (String) datasetTable.getItem(event.getItemId())
-              .getItemProperty("File Name").getValue();
-          URL url;
-          try {
-            Resource res = null;
-            Object parent = datasetTable.getParent(event.getItemId());
-            if (parent != null) {
-              String parentDatasetFileName =
-                  (String) datasetTable.getItem(parent).getItemProperty("File Name").getValue();
-              url = datahandler.getOpenBisClient().getUrlForDataset(datasetCode,
-                  parentDatasetFileName + "/" + datasetFileName);
-            } else {
-              url = datahandler.getOpenBisClient().getUrlForDataset(datasetCode, datasetFileName);
-            }
+    this.datasetTable.addItemClickListener((ItemClickListener) event -> {
+      Item selectedItem = datasetTable.getItem(event.getItemId());
 
-            Window subWindow = new Window();
-            VerticalLayout subContent = new VerticalLayout();
-            subContent.setMargin(true);
-            subWindow.setContent(subContent);
-            ProjectBrowserPortlet ui = (ProjectBrowserPortlet) UI.getCurrent();
-            Boolean visualize = false;
+      if (selectedItem != null ||
+              event.isDoubleClick() ||
+              ((boolean) selectedItem.getItemProperty("isDirectory").getValue())) { return; }
 
-            if (datasetFileName.endsWith(".pdf")) {
-              QcMlOpenbisSource re = new QcMlOpenbisSource(url);
-              StreamResource streamres = new StreamResource(re, datasetFileName);
-              streamres.setMIMEType("application/pdf");
-              res = streamres;
-              visualize = true;
-            }
+      String datasetCode     = (String) selectedItem.getItemProperty("CODE").getValue();
+      String datasetFileName = (String) selectedItem.getItemProperty("File Name").getValue();
 
-            if (visualize) {
-              LOG.debug("Is resource null?: " + String.valueOf(res == null));
-              BrowserFrame frame = new BrowserFrame("", res);
+      try {
+        Object parent = datasetTable.getParent(event.getItemId());
+        String mimeType = "";
 
-              frame.setSizeFull();
-              subContent.addComponent(frame);
-
-              // Center it in the browser window
-              subWindow.center();
-              subWindow.setModal(true);
-              subWindow.setSizeFull();
-
-              frame.setHeight((int) (ui.getPage().getBrowserWindowHeight() * 0.9), Unit.PIXELS);
-
-              // Open it in the UI
-              ui.addWindow(subWindow);
-            }
-
-          } catch (MalformedURLException e) {
-            LOG.error(String.format("Visualization failed because of malformedURL for dataset: %s",
-                datasetCode));
-            Notification.show(
-                "Given dataset has no file attached to it!! Please Contact your project manager. Or check whether it already has some data",
-                Notification.Type.ERROR_MESSAGE);
-          }
+        if (parent != null) {
+          String parentDatasetFileName = (String) datasetTable.getItem(parent).getItemProperty("File Name").getValue();
+          datasetFileName = parentDatasetFileName + "/" + datasetFileName;
         }
+
+        if (datasetFileName.endsWith(".pdf"))
+          mimeType = "application/pdf";
+
+        if (!"".equals(mimeType)) {
+          QcMlOpenbisSource re = new QcMlOpenbisSource(datasetCode, datasetFileName, datahandler.getOpenBisClient());
+          StreamResource streamres = new StreamResource(re, datasetFileName);
+          streamres.setMIMEType( mimeType );
+
+          BrowserFrame frame = new BrowserFrame("", streamres);
+          frame.setSizeFull();
+          frame.setHeight("100%");
+
+          VerticalLayout subContent = new VerticalLayout();
+          subContent.setMargin(true);
+          subContent.setSizeFull();
+          subContent.addComponent(frame);
+
+          Window subWindow = new Window();
+          subWindow.setContent(subContent);
+          subWindow.center();  // Center it in the browser window
+          subWindow.setModal(true);
+          subWindow.setSizeUndefined();
+          subWindow.setHeight("80%");
+          subWindow.setWidth("80%");
+          subWindow.setResizable(false);
+
+          // Open it in the UI
+          ProjectBrowserPortlet ui = (ProjectBrowserPortlet) UI.getCurrent();
+          ui.addWindow(subWindow);
+        }
+
+      } catch (Exception e) {
+        LOG.error(e.getMessage());
+        LOG.error(String.format(
+                "Visualization failed because of malformedURL for dataset: %s", datasetCode));
+        Notification.show(
+                "Given dataset has no file attached to it! " +
+                        "Please Contact your project manager. " +
+                        "Or check whether it already has some data",
+                Notification.Type.ERROR_MESSAGE);
       }
     });
 

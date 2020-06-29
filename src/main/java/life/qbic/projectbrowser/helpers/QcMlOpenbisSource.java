@@ -24,6 +24,7 @@ import java.net.URL;
 import java.net.URLConnection;
 
 import com.vaadin.server.StreamResource;
+import life.qbic.openbis.openbisclient.OpenBisClient;
 
 /**
  * This class should get an openbis datastore_server url for an xml file.
@@ -32,7 +33,9 @@ import com.vaadin.server.StreamResource;
  * 
  */
 public class QcMlOpenbisSource implements StreamResource.StreamSource {
-  URL u;
+  private URL u;
+  private String datasetCode, datasetElement;
+  private OpenBisClient conn;
 
   /**
    * 
@@ -43,9 +46,26 @@ public class QcMlOpenbisSource implements StreamResource.StreamSource {
   }
 
   /**
+   *
+   * @param datasetCode Code of dataset
+   * @param datasetElement Name/Path of element in dataset
+   * @param conn openBIS API Wrapper
+   */
+  public QcMlOpenbisSource(String datasetCode, String datasetElement, OpenBisClient conn) {
+    this.datasetCode = datasetCode;
+    this.datasetElement = datasetElement;
+    this.conn = conn;
+  }
+
+  /**
    * We need to implement this method that returns the resource as a stream.
    */
   public InputStream getStream() {
+
+    if (datasetCode != null && datasetElement != null && conn != null) {
+      return conn.getDatasetStream(datasetCode, datasetElement);
+    }
+
     try {
       URLConnection urlConnection = u.openConnection();
 

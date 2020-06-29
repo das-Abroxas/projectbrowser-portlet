@@ -682,150 +682,77 @@ public class LevelComponent extends CustomComponent {
           (String) this.datasetTable.getItem(itemId).getItemProperty("CODE").getValue());
     }
 
-    this.datasetTable.addItemClickListener(new ItemClickListener() {
-      @Override
-      public void itemClick(ItemClickEvent event) {
-        if (!event.isDoubleClick() & !((boolean) datasetTable.getItem(event.getItemId())
-            .getItemProperty("isDirectory").getValue())) {
-          String datasetCode =
-              (String) datasetTable.getItem(event.getItemId()).getItemProperty("CODE").getValue();
-          String datasetFileName = (String) datasetTable.getItem(event.getItemId())
-              .getItemProperty("File Name").getValue();
-          URL url = null;
-          try {
-            Resource res = null;
-            Object parent = datasetTable.getParent(event.getItemId());
-            if (parent != null) {
+    this.datasetTable.addItemClickListener((ItemClickListener) event -> {
+      Item selectedItem = datasetTable.getItem(event.getItemId());
 
-              String parentDatasetFileName =
-                  (String) datasetTable.getItem(parent).getItemProperty("File Name").getValue();
-              try {
-                url = datahandler.getOpenBisClient().getUrlForDataset(datasetCode,
-                    parentDatasetFileName + "/" + URLEncoder.encode(datasetFileName, "UTF-8"));
-              } catch (UnsupportedEncodingException e) {
-                // TODO Auto-generated catch block
-                e.printStackTrace();
-              }
-            } else {
-              try {
-                url = datahandler.getOpenBisClient().getUrlForDataset(datasetCode,
-                    URLEncoder.encode(datasetFileName, "UTF-8"));
-              } catch (UnsupportedEncodingException e) {
-                // TODO Auto-generated catch block
-                e.printStackTrace();
-              }
-            }
+      if (selectedItem == null || event.isDoubleClick() ||
+          ((boolean) selectedItem.getItemProperty("isDirectory").getValue())) { return; }
 
-            Window subWindow = new Window();
-            VerticalLayout subContent = new VerticalLayout();
-            subContent.setMargin(true);
-            subContent.setSizeFull();
-            subWindow.setContent(subContent);
-            ProjectBrowserPortlet ui = (ProjectBrowserPortlet) UI.getCurrent();
-            Boolean visualize = false;
+      String datasetCode     = (String) selectedItem.getItemProperty("CODE").getValue();
+      String datasetFileName = (String) selectedItem.getItemProperty("File Name").getValue();
 
-            if (datasetFileName.endsWith(".pdf")) {
-              QcMlOpenbisSource re = new QcMlOpenbisSource(url);
-              StreamResource streamres = new StreamResource(re, datasetFileName);
-              streamres.setMIMEType("application/pdf");
-              res = streamres;
-              visualize = true;
-            }
+      try {
+        Object parent = datasetTable.getParent(event.getItemId());
+        String mimeType = "";
 
-            if (datasetFileName.endsWith(".png")) {
-              QcMlOpenbisSource re = new QcMlOpenbisSource(url);
-              StreamResource streamres = new StreamResource(re, datasetFileName);
-              streamres.setMIMEType("application/png");
-              res = streamres;
-              visualize = true;
-            }
-
-            if (datasetFileName.endsWith(".qcML")) {
-              QcMlOpenbisSource re = new QcMlOpenbisSource(url);
-              StreamResource streamres = new StreamResource(re, datasetFileName);
-              streamres.setMIMEType("text/xml");
-              res = streamres;
-              visualize = true;
-            }
-
-            if (datasetFileName.endsWith(".alleles")) {
-              QcMlOpenbisSource re = new QcMlOpenbisSource(url);
-              StreamResource streamres = new StreamResource(re, datasetFileName);
-              streamres.setMIMEType("text/plain");
-              res = streamres;
-              visualize = true;
-            }
-
-            if (datasetFileName.endsWith(".tsv")) {
-              QcMlOpenbisSource re = new QcMlOpenbisSource(url);
-              StreamResource streamres = new StreamResource(re, datasetFileName);
-              streamres.setMIMEType("text/plain");
-              res = streamres;
-              visualize = true;
-            }
-
-            if (datasetFileName.endsWith(".log")) {
-              QcMlOpenbisSource re = new QcMlOpenbisSource(url);
-              StreamResource streamres = new StreamResource(re, datasetFileName);
-              streamres.setMIMEType("text/plain");
-              res = streamres;
-              visualize = true;
-            }
-
-            if (datasetFileName.endsWith(".html")) {
-              QcMlOpenbisSource re = new QcMlOpenbisSource(url);
-              StreamResource streamres = new StreamResource(re, datasetFileName);
-              streamres.setMIMEType("text/html");
-              res = streamres;
-              visualize = true;
-            }
-
-            if (datasetFileName.endsWith(".GSvar")) {
-              QcMlOpenbisSource re = new QcMlOpenbisSource(url);
-              StreamResource streamres = new StreamResource(re, datasetFileName);
-              streamres.setMIMEType("text/plain");
-              res = streamres;
-              visualize = true;
-            }
-
-            if (visualize) {
-              BrowserFrame frame = new BrowserFrame("", res);
-
-              frame.setSizeFull();
-              subContent.addComponent(frame);
-
-              // Center it in the browser window
-              subWindow.center();
-              subWindow.setModal(true);
-              subWindow.setSizeUndefined();
-              subWindow.setHeight("75%");
-              subWindow.setWidth("75%");
-              subWindow.setResizable(false);
-
-              frame.setSizeFull();
-              frame.setHeight("100%");
-              // frame.setHeight((int) (ui.getPage().getBrowserWindowHeight() * 0.9), Unit.PIXELS);
-
-              // Open it in the UI
-              ui.addWindow(subWindow);
-            }
-
-          } catch (MalformedURLException e) {
-            LOG.error(String.format("Visualization failed because of malformedURL for dataset: %s",
-                datasetCode));
-            Utils.Notification("No file attached.",
-                "Given dataset has no file attached to it!! Please Contact your project manager. Or check whether it already has some data",
-                "error");
-
-            // Notification
-            // .show(
-            // "Given dataset has no file attached to it!! Please Contact your project manager. Or
-            // check whether it already has some data",
-            // Notification.Type.ERROR_MESSAGE);
-          }
+        if (parent != null) {
+          String parentDatasetFileName = (String) datasetTable.getItem(parent).getItemProperty("File Name").getValue();
+          datasetFileName = parentDatasetFileName + "/" + datasetFileName;
         }
+
+        if (datasetFileName.endsWith(".pdf"))
+          mimeType = "application/pdf";
+        else if (datasetFileName.endsWith(".png"))
+          mimeType = "image/png";
+        else if (datasetFileName.matches(".*\\.jpe?g?"))  // matches *.jpg *.jpe *.jpeg
+          mimeType = "image/jpeg";
+        else if (datasetFileName.endsWith(".qcML"))
+          mimeType = "text/xml";
+        else if (datasetFileName.endsWith(".html"))
+          mimeType = "text/html";
+        else if (datasetFileName.matches(".*\\.(alleles|tsv|csv|GSvar|log)"))
+          mimeType = "text/plain";
+
+        if (!"".equals(mimeType)) {
+          QcMlOpenbisSource re = new QcMlOpenbisSource(datasetCode, datasetFileName, datahandler.getOpenBisClient());
+          StreamResource streamres = new StreamResource(re, datasetFileName);
+          streamres.setMIMEType( mimeType );
+
+          BrowserFrame frame = new BrowserFrame("", streamres);
+          frame.setSizeFull();
+          frame.setHeight("100%");
+
+          VerticalLayout subContent = new VerticalLayout();
+          subContent.setMargin(true);
+          subContent.setSizeFull();
+          subContent.addComponent(frame);
+
+          Window subWindow = new Window();
+          subWindow.setContent(subContent);
+          subWindow.center();  // Center it in the browser window
+          subWindow.setModal(true);
+          subWindow.setSizeUndefined();
+          subWindow.setHeight("90%");
+          subWindow.setWidth("90%");
+          subWindow.setResizable(false);
+
+          // Open it in the UI
+          ProjectBrowserPortlet ui = (ProjectBrowserPortlet) UI.getCurrent();
+          ui.addWindow(subWindow);
+        }
+
+      } catch (Exception e) {
+        LOG.error(e.getMessage());
+        LOG.error(String.format(
+                "Visualization failed because of malformedURL for dataset: %s", datasetCode));
+        Notification.show(
+                "Given dataset has no file attached to it! " +
+                        "Please Contact your project manager. " +
+                        "Or check whether it already has some data",
+                Notification.Type.ERROR_MESSAGE);
       }
     });
+
     this.vert.addComponent(help);
     this.vert.addComponent(buttonLayout);
     this.vert.addComponent(tableSectionSamples);
